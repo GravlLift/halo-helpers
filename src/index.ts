@@ -11,3 +11,4 @@ export * from './halo-caches/match-page-cache';
 export * from './gamerpic-url';
 export * from './request-policy';
 export * from './xuids';
+export * from './skill-rank-helpers';
