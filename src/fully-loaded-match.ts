@@ -1,23 +1,15 @@
-import type { HaloCaches } from './halo-caches/halo-caches';
 import { compareXuids, wrapXuid } from '@gravllift/halo-helpers';
 import {
   MatchInfo,
   MatchSkill,
   MatchStats,
   PlayerMatchHistory,
-  Playlist,
-  PlaylistAsset,
   ResultContainer,
 } from 'halo-infinite-api';
-import {
-  BehaviorSubject,
-  Observable,
-  Observer,
-  Subject,
-  Subscribable,
-} from 'rxjs';
-import type { ILeaderboardProvider } from './leaderboard-provider';
+import { BehaviorSubject, Observer, Subscribable } from 'rxjs';
+import type { HaloCaches } from './halo-caches/halo-caches';
 import { queueLeaderboardEntryForProcessing } from './leaderboard-entry-queue';
+import type { ILeaderboardProvider } from './leaderboard-provider';
 import {
   PlayerMatchHistoryStatsSkill,
   ProgressiveMatch,

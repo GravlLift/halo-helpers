@@ -6,8 +6,8 @@ import {
   UgcGameVariantAsset,
   UserInfo,
   Playlist,
+  PlaylistAsset,
 } from 'halo-infinite-api';
-import { PlaylistAsset } from 'halo-infinite-api';
 
 export type MatchPlayers = Array<
   MatchStats['Players'][number] & {
