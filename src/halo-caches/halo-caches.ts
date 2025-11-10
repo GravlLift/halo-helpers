@@ -173,26 +173,52 @@ export class HaloCaches {
           }))
         );
     const xuidInput = new Subject<{ xuid: string; signal: AbortSignal }>();
-    let currentFetcher: typeof haloInfiniteFetch | typeof xboxLiveFetch =
-      haloInfiniteFetch;
+    // xbox cooldown tracking: if xbox returns 429 it goes into cooldown until
+    // the Retry-After header (or fallback) expires. We prefer xboxLiveFetch by
+    // default unless it's in cooldown, in which case we fall back to
+    // haloInfiniteFetch.
+    let xboxCooldownUntil = 0; // ms since epoch
+
     const xuidBuffer = xuidInput.pipe(
       bufferTime(500, undefined, 8),
       filter((requests) => requests.length > 0),
       mergeMap((requests) =>
-        requestPolicy.execute(() =>
-          currentFetcher(requests).catch((err) => {
-            if (
-              err instanceof RequestError &&
-              (err.response.status === 429 || err.response.status >= 500)
-            ) {
-              currentFetcher =
-                currentFetcher === haloInfiniteFetch
-                  ? xboxLiveFetch
-                  : haloInfiniteFetch;
+        requestPolicy.execute(async () => {
+          const useXbox = Date.now() >= xboxCooldownUntil;
+          const chosenFetcher = useXbox ? xboxLiveFetch : haloInfiniteFetch;
+          try {
+            return await chosenFetcher(requests);
+          } catch (err) {
+            if (err instanceof RequestError) {
+              // If we attempted xboxLiveFetch and it returned 429, put xbox into
+              // cooldown until Retry-After expires (or fallback to 60s).
+              if (
+                chosenFetcher === xboxLiveFetch &&
+                err.response.status === 429
+              ) {
+                let retryAfter = 5; // seconds fallback
+                // header keys can vary in case/shape
+                const raw =
+                  err.response.headers.get('retry-after') ??
+                  err.response.headers.get('Retry-After');
+                if (raw != null) {
+                  const parsed = parseInt(String(raw), 10);
+                  if (!Number.isNaN(parsed) && parsed > 0) {
+                    retryAfter = parsed;
+                  }
+                }
+
+                const dateHeader = err.response.headers.get('date');
+                const requestDate = dateHeader
+                  ? new Date(dateHeader).getTime()
+                  : Date.now();
+                xboxCooldownUntil = requestDate + retryAfter * 1000;
+              }
             }
+
             throw err;
-          })
-        )
+          }
+        })
       ),
       share()
     );
