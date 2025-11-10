@@ -18,7 +18,7 @@ export const requestPolicy = wrap(
         err.message === 'Load failed'
     ),
     {
-      maxAttempts: 1,
+      maxAttempts: 10,
       backoff: new DelegateBackoff((context) => {
         if (
           (context.result instanceof RequestError &&

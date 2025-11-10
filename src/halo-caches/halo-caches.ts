@@ -180,7 +180,7 @@ export class HaloCaches {
     let xboxCooldownUntil = 0; // ms since epoch
 
     const xuidBuffer = xuidInput.pipe(
-      bufferTime(500, undefined, 8),
+      bufferTime(500, undefined, 32),
       filter((requests) => requests.length > 0),
       mergeMap((requests) =>
         requestPolicy.execute(async () => {
