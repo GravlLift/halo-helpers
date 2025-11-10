@@ -191,13 +191,12 @@ export class HaloCaches {
           } catch (err) {
             if (err instanceof RequestError) {
               // If we attempted xboxLiveFetch and it returned 429, put xbox into
-              // cooldown until Retry-After expires (or fallback to 60s).
+              // cooldown until Retry-After expires.
               if (
                 chosenFetcher === xboxLiveFetch &&
                 err.response.status === 429
               ) {
                 let retryAfter = 5; // seconds fallback
-                // header keys can vary in case/shape
                 const raw =
                   err.response.headers.get('retry-after') ??
                   err.response.headers.get('Retry-After');
