@@ -1,7 +1,7 @@
 import type { LeaderboardEntry } from './leaderboard-entry';
 
 export interface ILeaderboardProvider {
-  initialized: () => boolean;
+  initialized: () => Promise<boolean>;
   addLeaderboardEntries(
     entries: LeaderboardEntry[]
   ): Promise<LeaderboardEntry[]>;
