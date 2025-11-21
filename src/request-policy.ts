@@ -10,13 +10,26 @@ export const requestPolicy = wrap(
         err.response.status === 401 ||
         err.response.status === 0 ||
         err.response.status === 429
-    ).orType(
-      TypeError,
-      (err) =>
-        err.message === 'NetworkError when attempting to fetch resource.' ||
-        err.message === 'Failed to fetch' ||
-        err.message === 'Load failed'
-    ),
+    )
+      .orType(
+        TypeError,
+        (err) =>
+          err.message === 'NetworkError when attempting to fetch resource.' ||
+          err.message === 'Failed to fetch' ||
+          err.message === 'Load failed'
+      )
+      .orWhen(
+        (err) =>
+          'response' in err &&
+          err.response != null &&
+          typeof err.response === 'object' &&
+          'status' in err.response &&
+          typeof err.response.status === 'number' &&
+          (err.response.status >= 500 ||
+            err.response.status === 401 ||
+            err.response.status === 0 ||
+            err.response.status === 429)
+      ),
     {
       maxAttempts: 10,
       backoff: new DelegateBackoff((context) => {
