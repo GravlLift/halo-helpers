@@ -14,7 +14,8 @@ export const requestPolicy = wrap(
         isRequestError(err) &&
         (err.response.status >= 500 ||
           err.response.status === 401 ||
-          err.response.status === 0)
+          err.response.status === 0 ||
+          err.response.status === 429)
     ),
     {
       maxAttempts: 10,
