@@ -114,31 +114,39 @@ export class HaloCaches {
                   .catch(async (err) => {
                     if (
                       (err instanceof RequestError &&
-                        err.response.status === 429) ||
+                        (err.response.status === 429 ||
+                          err.response.status === 500)) ||
                       err instanceof GamertagMismatchError
                     ) {
-                      const searchResults = await xboxClient.searchUsers(
-                        gamertag,
-                        5,
-                        { signal }
-                      );
-                      const searchResult = searchResults.find(
-                        (r) =>
-                          r.gamertag.toLowerCase() === gamertag.toLowerCase()
-                      );
-                      if (!searchResult) {
-                        throw new Error(`Failed to find user ${gamertag}`);
+                      try {
+                        const searchResults = await xboxClient.searchUsers(
+                          gamertag,
+                          5,
+                          { signal }
+                        );
+                        const searchResult = searchResults.find(
+                          (r) =>
+                            r.gamertag.toLowerCase() === gamertag.toLowerCase()
+                        );
+                        if (!searchResult) {
+                          throw new Error(`Failed to find user ${gamertag}`);
+                        }
+                        const baseUrl = new URL(searchResult.displayPicRaw);
+                        return {
+                          ...searchResult,
+                          gamerpic: {
+                            small: getGamerpicUrl(baseUrl, 64),
+                            medium: getGamerpicUrl(baseUrl, 208),
+                            large: getGamerpicUrl(baseUrl, 424),
+                            xlarge: baseUrl.toString(),
+                          },
+                        };
+                      } catch (searchErr) {
+                        throw new AggregateError(
+                          [err, searchErr],
+                          `Failed to get user ${gamertag} from both Halo and Xbox APIs`
+                        );
                       }
-                      const baseUrl = new URL(searchResult.displayPicRaw);
-                      return {
-                        ...searchResult,
-                        gamerpic: {
-                          small: getGamerpicUrl(baseUrl, 64),
-                          medium: getGamerpicUrl(baseUrl, 208),
-                          large: getGamerpicUrl(baseUrl, 424),
-                          xlarge: baseUrl.toString(),
-                        },
-                      };
                     }
                     throw err;
                   }),
