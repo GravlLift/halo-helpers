@@ -42,6 +42,7 @@ import {
 } from 'rxjs';
 import { getGamerpicUrl } from '../gamerpic-url';
 import { unwrapXuid, compareXuids } from '../xuids';
+import { isRequestError } from '../error-helpers';
 
 class GamertagMismatchError extends Error {
   constructor(expected: string, actual: string) {
@@ -113,7 +114,7 @@ export class HaloCaches {
                   })
                   .catch(async (err) => {
                     if (
-                      (err instanceof RequestError &&
+                      (isRequestError(err) &&
                         (err.response.status === 429 ||
                           err.response.status === 500)) ||
                       err instanceof GamertagMismatchError
@@ -197,7 +198,7 @@ export class HaloCaches {
           try {
             return await chosenFetcher(requests);
           } catch (err) {
-            if (err instanceof RequestError) {
+            if (err instanceof Error && isRequestError(err)) {
               // If we attempted xboxLiveFetch and it returned 429, put xbox into
               // cooldown until Retry-After expires.
               if (
