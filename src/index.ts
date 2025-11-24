@@ -1,3 +1,4 @@
+export * from './error-helpers';
 export * from './esr';
 export * from './leaderboard-entry';
 export * from './player-match-history-stats-skill';
@@ -9,6 +10,5 @@ export * from './halo-caches/halo-caches';
 export * from './halo-caches/combined-user-cache';
 export * from './halo-caches/match-page-cache';
 export * from './gamerpic-url';
-export * from './request-policy';
 export * from './xuids';
 export * from './skill-rank-helpers';

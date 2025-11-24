@@ -379,25 +379,25 @@ export class HaloCaches {
             key: Omit<AssetVersionLink, 'AssetKind'>,
             signal?: AbortSignal
           ) =>
-            requestPolicy.execute(
-              (ctx) =>
-                haloInfiniteClient
-                  .getSpecificAssetVersion(
+            requestPolicy
+              .execute(
+                (ctx) =>
+                  haloInfiniteClient.getSpecificAssetVersion(
                     assetKind,
                     key.AssetId,
                     key.VersionId,
                     { signal: ctx.signal }
-                  )
-                  .catch(() => {
-                    const fallback: AssetVersionLink = {
-                      AssetId: key.AssetId,
-                      VersionId: key.VersionId,
-                      AssetKind: assetKind,
-                    };
-                    return fallback;
-                  }),
-              signal
-            ),
+                  ),
+                signal
+              )
+              .catch(() => {
+                const fallback: AssetVersionLink = {
+                  AssetId: key.AssetId,
+                  VersionId: key.VersionId,
+                  AssetKind: assetKind,
+                };
+                return fallback;
+              }),
         })
     ) as [
       MemoryCache<
