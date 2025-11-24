@@ -60,7 +60,7 @@ export async function fetchFullyLoadedMatch(
     haloCaches.gameVariantCache.get(match.MatchInfo.UgcGameVariant, signal),
     match.MatchInfo.Playlist?.AssetId
       ? haloCaches.playlistCache
-          .get(match.MatchInfo.Playlist.AssetId)
+          .get(match.MatchInfo.Playlist.AssetId, signal)
           .catch(() => null)
       : null,
     match.MatchInfo.Playlist
@@ -71,7 +71,8 @@ export async function fetchFullyLoadedMatch(
           haloCaches.usersCache.get(
             s.Players.filter((p) => /^xuid\(\d+\)$/.test(p.PlayerId)).map((p) =>
               wrapXuid(p.PlayerId)
-            )
+            ),
+            signal
           )
         )
       : new Map<
