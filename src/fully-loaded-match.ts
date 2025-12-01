@@ -214,7 +214,7 @@ export function fetchMatchProgressive(
 
   if (match.MatchInfo.Playlist?.AssetId) {
     options.haloCaches.playlistCache
-      .get(match.MatchInfo.Playlist.AssetId)
+      .get(match.MatchInfo.Playlist.AssetId, options.signal)
       .then((playlist) => {
         subject.next({
           ...subject.value,
@@ -248,7 +248,7 @@ export function fetchMatchProgressive(
   }
 
   const matchStatsPromise = options.haloCaches.matchStatsCache
-    .get(match.MatchId)
+    .get(match.MatchId, options.signal)
     .then((matchStats) => {
       subject.next({
         ...subject.value,
@@ -343,7 +343,7 @@ export function fetchMatchProgressive(
     playerXuidsPromise.then((playersXuids) => {
       // Gamertags
       options.haloCaches.usersCache
-        .get(playersXuids)
+        .get(playersXuids, options.signal)
         .forEach(async (userPromise) => {
           const user = await userPromise;
           subject.next({
