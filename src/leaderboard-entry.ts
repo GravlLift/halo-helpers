@@ -17,6 +17,7 @@ export function entryIsValid(entry: LeaderboardEntry | null) {
     entry.csr > -1 &&
     entry.esr !== undefined &&
     entry.matchDate > DateTime.utc().minus({ days: 7 }).toMillis() &&
+    entry.matchDate < DateTime.utc().plus({ minutes: 5 }).toMillis() &&
     entry.xuid &&
     entry.gamertag
   );
