@@ -55,19 +55,15 @@ export class MatchPageCache implements Cache<PlayerMatchHistory[], Key> {
         const initialQueue = this.requestQueue;
         let requestPromise = new ResolvablePromise<void>();
         const scheduler = async () => {
-          console.debug(`[${key.xuid}.${key.start}] initiating scheduler`);
           await requestPromise;
-          console.debug(`[${key.xuid}.${key.start}] request completed`);
           await new Promise((resolve) => {
             setTimeout(() => {
               resolve(undefined);
             }, this.intervalMs);
           });
-          console.debug(`[${key.xuid}.${key.start}] scheduler done`);
         };
         this.requestQueue = this.requestQueue.then(scheduler, scheduler);
         await initialQueue;
-        console.debug(`[${key.xuid}.${key.start}] initiating request`);
         return executeRequest().finally(() => {
           requestPromise.resolve();
         });
