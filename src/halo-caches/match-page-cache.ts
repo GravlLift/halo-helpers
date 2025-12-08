@@ -1,4 +1,4 @@
-import { Cache, MemoryCache } from '@gravllift/utilities';
+import { Cache, MemoryCache, ResolvablePromise } from '@gravllift/utilities';
 import { IPolicy } from 'cockatiel';
 import {
   HaloInfiniteClient,
@@ -17,8 +17,8 @@ export class MatchPageCache implements Cache<PlayerMatchHistory[], Key> {
     },
     []
   >;
-  private nextAvailable = 0;
-  private readonly intervalMs = 250;
+  private readonly intervalMs = 500;
+  private requestQueue: Promise<unknown> = Promise.resolve();
   constructor(
     haloInfiniteClient: HaloInfiniteClient,
     options: {
@@ -34,26 +34,43 @@ export class MatchPageCache implements Cache<PlayerMatchHistory[], Key> {
         key: { start: number; xuid: string },
         signal?: AbortSignal
       ) => {
-        if ((await options.xuidIsCurrentUser(key.xuid)) === false) {
-          const now = Date.now();
-          const start = Math.max(now, this.nextAvailable);
-          const wait = start - now;
-          this.nextAvailable = start + this.intervalMs;
-          if (wait > 0) {
-            await new Promise((resolve) => setTimeout(resolve, wait));
-          }
+        const executeRequest = () =>
+          options.requestPolicy.execute(
+            (ctx) =>
+              haloInfiniteClient.getPlayerMatches(
+                key.xuid,
+                MatchType.All,
+                25,
+                key.start,
+                { signal: ctx.signal }
+              ),
+            signal
+          );
+
+        if (await options.xuidIsCurrentUser(key.xuid)) {
+          // No rate limit on self-requests
+          return executeRequest();
         }
-        return await options.requestPolicy.execute(
-          (ctx) =>
-            haloInfiniteClient.getPlayerMatches(
-              key.xuid,
-              MatchType.All,
-              25,
-              key.start,
-              { signal: ctx.signal }
-            ),
-          signal
-        );
+
+        const initialQueue = this.requestQueue;
+        let requestPromise = new ResolvablePromise<void>();
+        const scheduler = async () => {
+          console.debug(`[${key.xuid}.${key.start}] initiating scheduler`);
+          await requestPromise;
+          console.debug(`[${key.xuid}.${key.start}] request completed`);
+          await new Promise((resolve) => {
+            setTimeout(() => {
+              resolve(undefined);
+            }, this.intervalMs);
+          });
+          console.debug(`[${key.xuid}.${key.start}] scheduler done`);
+        };
+        this.requestQueue = this.requestQueue.then(scheduler, scheduler);
+        await initialQueue;
+        console.debug(`[${key.xuid}.${key.start}] initiating request`);
+        return executeRequest().finally(() => {
+          requestPromise.resolve();
+        });
       },
     });
   }
