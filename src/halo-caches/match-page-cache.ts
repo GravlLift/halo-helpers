@@ -17,16 +17,33 @@ export class MatchPageCache implements Cache<PlayerMatchHistory[], Key> {
     },
     []
   >;
-  constructor(haloInfiniteClient: HaloInfiniteClient, requestPolicy: IPolicy) {
+  private nextAvailable = 0;
+  private readonly intervalMs = 250;
+  constructor(
+    haloInfiniteClient: HaloInfiniteClient,
+    options: {
+      requestPolicy: IPolicy;
+      xuidIsCurrentUser: (xuid: string) => Promise<boolean>;
+    }
+  ) {
     this.innerMatchPageCache = new MemoryCache({
       cacheExpirationMs: 15 * 1000,
       keyTransformer: (key: { start: number; xuid: string }) =>
         `${key.xuid}.${key.start}`,
-      fetchOneFn: (
+      fetchOneFn: async (
         key: { start: number; xuid: string },
         signal?: AbortSignal
-      ) =>
-        requestPolicy.execute(
+      ) => {
+        if ((await options.xuidIsCurrentUser(key.xuid)) === false) {
+          const now = Date.now();
+          const start = Math.max(now, this.nextAvailable);
+          const wait = start - now;
+          this.nextAvailable = start + this.intervalMs;
+          if (wait > 0) {
+            await new Promise((resolve) => setTimeout(resolve, wait));
+          }
+        }
+        return await options.requestPolicy.execute(
           (ctx) =>
             haloInfiniteClient.getPlayerMatches(
               key.xuid,
@@ -36,7 +53,8 @@ export class MatchPageCache implements Cache<PlayerMatchHistory[], Key> {
               { signal: ctx.signal }
             ),
           signal
-        ),
+        );
+      },
     });
   }
 

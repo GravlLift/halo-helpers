@@ -23,14 +23,11 @@ import {
   PlayerMatchHistory,
   Playlist,
   PlaylistAsset,
-  RequestError,
   ResultContainer,
   UgcGameVariantAsset,
   UserInfo,
   XboxClient,
 } from 'halo-infinite-api';
-import { CombinedUserCache } from './combined-user-cache';
-import { MatchPageCache } from './match-page-cache';
 import {
   bufferTime,
   filter,
@@ -40,9 +37,11 @@ import {
   share,
   Subject,
 } from 'rxjs';
-import { getGamerpicUrl } from '../gamerpic-url';
-import { unwrapXuid, compareXuids } from '../xuids';
 import { isRequestError } from '../error-helpers';
+import { getGamerpicUrl } from '../gamerpic-url';
+import { compareXuids, unwrapXuid } from '../xuids';
+import { CombinedUserCache } from './combined-user-cache';
+import { MatchPageCache } from './match-page-cache';
 
 class GamertagMismatchError extends Error {
   constructor(expected: string, actual: string) {
@@ -88,11 +87,14 @@ export class HaloCaches {
   constructor(
     haloInfiniteClient: HaloInfiniteClient,
     xboxClient: XboxClient,
-    requestPolicy: IPolicy,
-    additionalXuidFetcher?: NullableFetcher<
-      { xuid: string; gamertag: string },
-      string
-    >
+    options: {
+      requestPolicy: IPolicy;
+      xuidIsCurrentUser: (xuid: string) => Promise<boolean>;
+      additionalXuidFetcher?: NullableFetcher<
+        { xuid: string; gamertag: string },
+        string
+      >;
+    }
   ) {
     this.fullUsersCache = new LayerCache({
       maxEntries: 1000,
@@ -101,7 +103,7 @@ export class HaloCaches {
       fetchers: [
         {
           fetchOneFn: async (gamertag: string, signal?: AbortSignal) => {
-            const result = await requestPolicy.execute(
+            const result = await options.requestPolicy.execute(
               (ctx) =>
                 haloInfiniteClient
                   .getUser(gamertag, { signal: ctx.signal })
@@ -192,7 +194,7 @@ export class HaloCaches {
       bufferTime(500, undefined, 32),
       filter((requests) => requests.length > 0),
       mergeMap((requests) =>
-        requestPolicy.execute(async () => {
+        options.requestPolicy.execute(async () => {
           const useXbox = Date.now() >= xboxCooldownUntil;
           const chosenFetcher = useXbox ? xboxLiveFetch : haloInfiniteFetch;
           try {
@@ -234,8 +236,8 @@ export class HaloCaches {
     const fetchers = [] as Array<
       NullableFetcher<{ xuid: string; gamertag: string }, string>
     >;
-    if (additionalXuidFetcher) {
-      fetchers.push(additionalXuidFetcher);
+    if (options.additionalXuidFetcher) {
+      fetchers.push(options.additionalXuidFetcher);
     }
     this.xuidCache = new LayerCache({
       keyTransformer: (xuid: string) => unwrapXuid(xuid),
@@ -273,7 +275,7 @@ export class HaloCaches {
 
     this.matchStatsCache = new NoCache({
       fetchOneFn: (matchId: string, signal?: AbortSignal) =>
-        requestPolicy.execute(
+        options.requestPolicy.execute(
           (ctx) =>
             haloInfiniteClient.getMatchStats(matchId, { signal: ctx.signal }),
           signal
@@ -302,7 +304,7 @@ export class HaloCaches {
             .map(async ([matchId, group]) => {
               return {
                 matchId,
-                skills: await requestPolicy.execute(
+                skills: await options.requestPolicy.execute(
                   (ctx) =>
                     haloInfiniteClient.getMatchSkill(
                       matchId,
@@ -340,7 +342,7 @@ export class HaloCaches {
     });
     this.playlistCache = new NoCache({
       fetchOneFn: (playlistId: string, signal?: AbortSignal) =>
-        requestPolicy.execute(
+        options.requestPolicy.execute(
           (ctx) =>
             haloInfiniteClient.getPlaylist(playlistId, {
               signal: ctx.signal,
@@ -379,7 +381,7 @@ export class HaloCaches {
             key: Omit<AssetVersionLink, 'AssetKind'>,
             signal?: AbortSignal
           ) =>
-            requestPolicy
+            options.requestPolicy
               .execute(
                 (ctx) =>
                   haloInfiniteClient.getSpecificAssetVersion(
@@ -418,6 +420,6 @@ export class HaloCaches {
       >
     ];
 
-    this.matchPageCache = new MatchPageCache(haloInfiniteClient, requestPolicy);
+    this.matchPageCache = new MatchPageCache(haloInfiniteClient, options);
   }
 }
