@@ -27,7 +27,7 @@ export const requestPolicy = wrap(
           }
         }
 
-        return 0;
+        return context.attempt * 1000;
       }),
     }
   ),
