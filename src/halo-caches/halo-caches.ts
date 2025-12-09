@@ -9,7 +9,7 @@ import {
   NullableFetcher,
 } from '@gravllift/utilities';
 
-import { IPolicy } from 'cockatiel';
+import { DelegateBackoff, handleWhen, IPolicy, retry, wrap } from 'cockatiel';
 import {
   AssetKind,
   AssetKindTypeMap,
@@ -39,6 +39,7 @@ import {
 } from 'rxjs';
 import { isRequestError } from '../error-helpers';
 import { getGamerpicUrl } from '../gamerpic-url';
+import { networkFailurePolicy } from '../request-policy';
 import { compareXuids, unwrapXuid } from '../xuids';
 import { CombinedUserCache } from './combined-user-cache';
 import { MatchPageCache } from './match-page-cache';
@@ -163,73 +164,94 @@ export class HaloCaches {
       ],
     });
 
-    const haloInfiniteFetch = (
-      requests: { xuid: string; signal: AbortSignal }[]
-    ) =>
-      haloInfiniteClient.getUsers(requests.map(({ xuid }) => xuid).distinct(), {
-        signal: abortSignalAll(requests.map(({ signal }) => signal)),
-      });
-    const xboxLiveFetch = (requests: { xuid: string; signal: AbortSignal }[]) =>
-      xboxClient
-        .getProfiles(
+    const haloInfinite = {
+      fetch: (requests: { xuid: string; signal: AbortSignal }[]) =>
+        haloInfiniteClient.getUsers(
           requests.map(({ xuid }) => xuid).distinct(),
-          ['Gamertag', 'GameDisplayPicRaw'],
-          { signal: abortSignalAll(requests.map(({ signal }) => signal)) }
-        )
-        .then(({ profileUsers }) =>
-          profileUsers.map((profile) => ({
-            xuid: profile.id,
-            gamertag:
-              profile.settings.find((v) => v.id === 'Gamertag')?.value ?? '',
-          }))
-        );
-    const xuidInput = new Subject<{ xuid: string; signal: AbortSignal }>();
-    // xbox cooldown tracking: if xbox returns 429 it goes into cooldown until
-    // the Retry-After header (or fallback) expires. We prefer xboxLiveFetch by
-    // default unless it's in cooldown, in which case we fall back to
-    // haloInfiniteFetch.
-    let xboxCooldownUntil = 0; // ms since epoch
+          {
+            signal: abortSignalAll(requests.map(({ signal }) => signal)),
+          }
+        ),
+      cooldownUntil: 0,
+    };
+    const xboxLive = {
+      fetch: (requests: { xuid: string; signal: AbortSignal }[]) =>
+        xboxClient
+          .getProfiles(
+            requests.map(({ xuid }) => xuid).distinct(),
+            ['Gamertag', 'GameDisplayPicRaw'],
+            { signal: abortSignalAll(requests.map(({ signal }) => signal)) }
+          )
+          .then(({ profileUsers }) =>
+            profileUsers.map((profile) => ({
+              xuid: profile.id,
+              gamertag:
+                profile.settings.find((v) => v.id === 'Gamertag')?.value ?? '',
+            }))
+          ),
+      cooldownUntil: 0,
+    };
 
+    const xuidInput = new Subject<{ xuid: string; signal: AbortSignal }>();
     const xuidBuffer = xuidInput.pipe(
       bufferTime(500, undefined, 32),
       filter((requests) => requests.length > 0),
-      mergeMap((requests) =>
-        options.requestPolicy.execute(async () => {
-          const useXbox = Date.now() >= xboxCooldownUntil;
-          const chosenFetcher = useXbox ? xboxLiveFetch : haloInfiniteFetch;
+      mergeMap((requests) => {
+        const rateLimitPolicy = retry(
+          handleWhen(
+            (err) => isRequestError(err) && err.response.status === 429
+          ),
+          {
+            backoff: new DelegateBackoff(() => {
+              // Snooze until either service is available again
+              const now = Date.now();
+              return Math.min(
+                now - haloInfinite.cooldownUntil,
+                now - xboxLive.cooldownUntil
+              );
+            }),
+          }
+        );
+        return wrap(rateLimitPolicy, networkFailurePolicy).execute(async () => {
+          const now = Date.now();
+          const chosenFetcher =
+            // Prefer xbox live if its available
+            xboxLive.cooldownUntil <= now ||
+            // If both are on cooldown, use the one that will be available first
+            xboxLive.cooldownUntil <= haloInfinite.cooldownUntil
+              ? xboxLive
+              : haloInfinite;
           try {
-            return await chosenFetcher(requests);
+            return await chosenFetcher.fetch(requests);
           } catch (err) {
-            if (err instanceof Error && isRequestError(err)) {
-              // If we attempted xboxLiveFetch and it returned 429, put xbox into
-              // cooldown until Retry-After expires.
-              if (
-                chosenFetcher === xboxLiveFetch &&
-                err.response.status === 429
-              ) {
-                let retryAfter = 5; // seconds fallback
-                const raw =
-                  err.response.headers.get('retry-after') ??
-                  err.response.headers.get('Retry-After');
-                if (raw != null) {
-                  const parsed = parseInt(String(raw), 10);
-                  if (!Number.isNaN(parsed) && parsed > 0) {
-                    retryAfter = parsed;
-                  }
+            if (
+              err instanceof Error &&
+              isRequestError(err) &&
+              err.response.status === 429
+            ) {
+              let retryAfterSeconds = 5; // seconds fallback
+              const raw =
+                err.response.headers.get('retry-after') ??
+                err.response.headers.get('Retry-After');
+              if (raw != null) {
+                const parsed = parseInt(String(raw), 10);
+                if (!Number.isNaN(parsed) && parsed > 0) {
+                  retryAfterSeconds = parsed;
                 }
-
-                const dateHeader = err.response.headers.get('date');
-                const requestDate = dateHeader
-                  ? new Date(dateHeader).getTime()
-                  : Date.now();
-                xboxCooldownUntil = requestDate + retryAfter * 1000;
               }
+
+              const dateHeader = err.response.headers.get('date');
+              const requestDate = dateHeader
+                ? new Date(dateHeader).getTime()
+                : Date.now();
+              chosenFetcher.cooldownUntil =
+                requestDate + retryAfterSeconds * 1000;
             }
 
             throw err;
           }
-        })
-      ),
+        });
+      }),
       share()
     );
 
