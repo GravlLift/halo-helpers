@@ -209,20 +209,18 @@ export class HaloCaches {
               // Snooze until either service is available again
               const now = Date.now();
               return Math.min(
-                now - haloInfinite.cooldownUntil,
-                now - xboxLive.cooldownUntil
+                haloInfinite.cooldownUntil - now,
+                xboxLive.cooldownUntil - now
               );
             }),
           }
         );
         return wrap(rateLimitPolicy, networkFailurePolicy).execute(async () => {
           const now = Date.now();
-          console.debug(
-            'Selecting fetcher...',
-            now,
-            xboxLive.cooldownUntil,
-            haloInfinite.cooldownUntil
-          );
+          console.debug('Selecting fetcher...', {
+            xboxLive: new Date(xboxLive.cooldownUntil).toString(),
+            haloInfinite: new Date(haloInfinite.cooldownUntil).toString(),
+          });
           const chosenFetcher =
             // Prefer xbox live if its available
             xboxLive.cooldownUntil <= now ||
@@ -262,7 +260,7 @@ export class HaloCaches {
                   chosenFetcher.name
                 } is rate limited. Cooling down until ${new Date(
                   chosenFetcher.cooldownUntil
-                ).toISOString()}.`
+                ).toString()}.`
               );
             }
 
