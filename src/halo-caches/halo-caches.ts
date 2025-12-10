@@ -30,6 +30,7 @@ import {
 } from 'halo-infinite-api';
 import {
   bufferTime,
+  concatMap,
   filter,
   firstValueFrom,
   map,
@@ -165,6 +166,7 @@ export class HaloCaches {
     });
 
     const haloInfinite = {
+      name: 'HaloInfiniteUserFetcher',
       fetch: (requests: { xuid: string; signal: AbortSignal }[]) =>
         haloInfiniteClient.getUsers(
           requests.map(({ xuid }) => xuid).distinct(),
@@ -175,6 +177,7 @@ export class HaloCaches {
       cooldownUntil: 0,
     };
     const xboxLive = {
+      name: 'XboxLiveUserFetcher',
       fetch: (requests: { xuid: string; signal: AbortSignal }[]) =>
         xboxClient
           .getProfiles(
@@ -196,7 +199,7 @@ export class HaloCaches {
     const xuidBuffer = xuidInput.pipe(
       bufferTime(500, undefined, 32),
       filter((requests) => requests.length > 0),
-      mergeMap((requests) => {
+      concatMap((requests) => {
         const rateLimitPolicy = retry(
           handleWhen(
             (err) => isRequestError(err) && err.response.status === 429
@@ -214,6 +217,12 @@ export class HaloCaches {
         );
         return wrap(rateLimitPolicy, networkFailurePolicy).execute(async () => {
           const now = Date.now();
+          console.debug(
+            'Selecting fetcher...',
+            now,
+            xboxLive.cooldownUntil,
+            haloInfinite.cooldownUntil
+          );
           const chosenFetcher =
             // Prefer xbox live if its available
             xboxLive.cooldownUntil <= now ||
@@ -221,6 +230,7 @@ export class HaloCaches {
             xboxLive.cooldownUntil <= haloInfinite.cooldownUntil
               ? xboxLive
               : haloInfinite;
+          console.debug(`Using fetcher ${chosenFetcher.name}.`);
           try {
             return await chosenFetcher.fetch(requests);
           } catch (err) {
@@ -244,8 +254,16 @@ export class HaloCaches {
               const requestDate = dateHeader
                 ? new Date(dateHeader).getTime()
                 : Date.now();
+
               chosenFetcher.cooldownUntil =
                 requestDate + retryAfterSeconds * 1000;
+              console.debug(
+                `Fetcher ${
+                  chosenFetcher.name
+                } is rate limited. Cooling down until ${new Date(
+                  chosenFetcher.cooldownUntil
+                ).toISOString()}.`
+              );
             }
 
             throw err;
