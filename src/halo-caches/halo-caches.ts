@@ -1,7 +1,5 @@
 import {
-  abortSignalAll,
   Cache,
-  Fetchers,
   HasableCache,
   LayerCache,
   MemoryCache,
@@ -9,7 +7,7 @@ import {
   NullableFetcher,
 } from '@gravllift/utilities';
 
-import { DelegateBackoff, handleWhen, IPolicy, retry, wrap } from 'cockatiel';
+import { IPolicy } from 'cockatiel';
 import {
   AssetKind,
   AssetKindTypeMap,
@@ -28,22 +26,11 @@ import {
   UserInfo,
   XboxClient,
 } from 'halo-infinite-api';
-import {
-  bufferTime,
-  concatMap,
-  filter,
-  firstValueFrom,
-  map,
-  mergeMap,
-  share,
-  Subject,
-} from 'rxjs';
 import { isRequestError } from '../error-helpers';
 import { getGamerpicUrl } from '../gamerpic-url';
-import { networkFailurePolicy } from '../request-policy';
-import { compareXuids, unwrapXuid } from '../xuids';
 import { CombinedUserCache } from './combined-user-cache';
 import { MatchPageCache } from './match-page-cache';
+import { createXuidCache } from './xuid-cache';
 
 class GamertagMismatchError extends Error {
   constructor(expected: string, actual: string) {
@@ -165,147 +152,7 @@ export class HaloCaches {
       ],
     });
 
-    const haloInfinite = {
-      name: 'HaloInfiniteUserFetcher',
-      fetch: (requests: { xuid: string; signal: AbortSignal }[]) =>
-        haloInfiniteClient.getUsers(
-          requests.map(({ xuid }) => xuid).distinct(),
-          {
-            signal: abortSignalAll(requests.map(({ signal }) => signal)),
-          }
-        ),
-      cooldownUntil: 0,
-    };
-    const xboxLive = {
-      name: 'XboxLiveUserFetcher',
-      fetch: (requests: { xuid: string; signal: AbortSignal }[]) =>
-        xboxClient
-          .getProfiles(
-            requests.map(({ xuid }) => xuid).distinct(),
-            ['Gamertag', 'GameDisplayPicRaw'],
-            { signal: abortSignalAll(requests.map(({ signal }) => signal)) }
-          )
-          .then(({ profileUsers }) =>
-            profileUsers.map((profile) => ({
-              xuid: profile.id,
-              gamertag:
-                profile.settings.find((v) => v.id === 'Gamertag')?.value ?? '',
-            }))
-          ),
-      cooldownUntil: 0,
-    };
-
-    const xuidInput = new Subject<{ xuid: string; signal: AbortSignal }>();
-    const xuidBuffer = xuidInput.pipe(
-      bufferTime(500, undefined, 32),
-      filter((requests) => requests.length > 0),
-      concatMap((requests) => {
-        const rateLimitPolicy = retry(
-          handleWhen(
-            (err) => isRequestError(err) && err.response.status === 429
-          ),
-          {
-            backoff: new DelegateBackoff(() => {
-              // Snooze until either service is available again
-              const now = Date.now();
-              return Math.min(
-                haloInfinite.cooldownUntil - now,
-                xboxLive.cooldownUntil - now
-              );
-            }),
-          }
-        );
-        return wrap(rateLimitPolicy, networkFailurePolicy).execute(async () => {
-          const now = Date.now();
-          console.debug('Selecting fetcher...', {
-            xboxLive: new Date(xboxLive.cooldownUntil).toString(),
-            haloInfinite: new Date(haloInfinite.cooldownUntil).toString(),
-          });
-          const chosenFetcher =
-            // Prefer xbox live if its available
-            xboxLive.cooldownUntil <= now ||
-            // If both are on cooldown, use the one that will be available first
-            xboxLive.cooldownUntil <= haloInfinite.cooldownUntil
-              ? xboxLive
-              : haloInfinite;
-          console.debug(`Using fetcher ${chosenFetcher.name}.`);
-          try {
-            return await chosenFetcher.fetch(requests);
-          } catch (err) {
-            if (
-              err instanceof Error &&
-              isRequestError(err) &&
-              err.response.status === 429
-            ) {
-              let retryAfterSeconds = 5; // seconds fallback
-              const raw =
-                err.response.headers.get('retry-after') ??
-                err.response.headers.get('Retry-After');
-              if (raw != null) {
-                const parsed = parseInt(String(raw), 10);
-                if (!Number.isNaN(parsed) && parsed > 0) {
-                  retryAfterSeconds = parsed;
-                }
-              }
-
-              const dateHeader = err.response.headers.get('date');
-              const requestDate = dateHeader
-                ? new Date(dateHeader).getTime()
-                : Date.now();
-
-              chosenFetcher.cooldownUntil =
-                requestDate + retryAfterSeconds * 1000;
-              console.debug(
-                `Fetcher ${
-                  chosenFetcher.name
-                } is rate limited. Cooling down until ${new Date(
-                  chosenFetcher.cooldownUntil
-                ).toString()}.`
-              );
-            }
-
-            throw err;
-          }
-        });
-      }),
-      share()
-    );
-
-    const fetchers = [] as Array<
-      NullableFetcher<{ xuid: string; gamertag: string }, string>
-    >;
-    if (options.additionalXuidFetcher) {
-      fetchers.push(options.additionalXuidFetcher);
-    }
-    this.xuidCache = new LayerCache({
-      keyTransformer: (xuid: string) => unwrapXuid(xuid),
-      fetchers: [
-        ...fetchers,
-        {
-          fetchOneFn: (xuid: string, signal?: AbortSignal) => {
-            const resultPromise = firstValueFrom(
-              xuidBuffer.pipe(
-                map((result) => result.find((u) => compareXuids(u.xuid, xuid))),
-                filter(
-                  (result): result is { xuid: string; gamertag: string } =>
-                    result != null
-                )
-              )
-            );
-            xuidInput.next({
-              xuid,
-              signal: signal ?? new AbortController().signal,
-            });
-            return resultPromise;
-          },
-        },
-      ] as Fetchers<
-        { xuid: string; gamertag: string },
-        string,
-        [],
-        { xuid: string; gamertag: string }
-      >,
-    });
+    this.xuidCache = createXuidCache(haloInfiniteClient, xboxClient, options);
     this.usersCache = new CombinedUserCache(
       this.fullUsersCache,
       this.xuidCache
