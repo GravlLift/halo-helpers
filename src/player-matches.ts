@@ -12,7 +12,7 @@ const maxSimultaneousRequests = 8;
 
 export async function* getPlayerMatches(
   leaderboard:
-    | Pick<ILeaderboardProvider, 'addLeaderboardEntries' | 'containsXuid'>
+    | Pick<ILeaderboardProvider, 'addLeaderboardEntries' | 'getEntries'>
     | undefined,
   gamertags: string[],
   options: {
@@ -69,7 +69,7 @@ export async function* getPlayerMatches(
         match,
       }: {
         leaderboard:
-          | Pick<ILeaderboardProvider, 'addLeaderboardEntries' | 'containsXuid'>
+          | Pick<ILeaderboardProvider, 'addLeaderboardEntries' | 'getEntries'>
           | undefined;
         match: PlayerMatchHistory;
       },

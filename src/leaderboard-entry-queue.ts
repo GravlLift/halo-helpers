@@ -1,53 +1,57 @@
 import { HaloCaches } from './halo-caches/halo-caches';
-import { wrapXuid } from '@gravllift/halo-helpers';
+import { ILeaderboardProvider, wrapXuid } from '@gravllift/halo-helpers';
 import { MatchSkill } from 'halo-infinite-api';
 import { DateTime } from 'luxon';
-import { LeaderboardEntry } from './leaderboard-entry';
+import { entryIsValidNoUserInfo, LeaderboardEntry } from './leaderboard-entry';
 import { skillRankCombined } from './skill-rank-helpers';
 
-interface Entry {
-  leaderboard: {
-    containsXuid(xuid: string): Promise<boolean>;
-    addLeaderboardEntries: (e: LeaderboardEntry[]) => void;
-  };
-  esr: number;
-  matchSkill: MatchSkill;
-  matchInfo: {
-    startTime: string;
-    playlistAssetId: string;
-    gameVariantAssetId: string;
-    matchId: string;
-  };
+interface LeaderboardCacheEntry {
+  leaderboard: Pick<
+    ILeaderboardProvider,
+    'addLeaderboardEntries' | 'getEntries'
+  >;
 }
 
-interface EntryWithoutUserInfo extends Entry {
+interface EntryWithoutUserInfo extends LeaderboardCacheEntry {
   haloCaches: HaloCaches;
-  xuid: string;
+  entry: Omit<LeaderboardEntry, 'gamertag'>;
 }
 
-interface EntryWithUserInfo extends Entry {
-  userInfo: {
-    xuid: string;
-    gamertag: string;
-  };
+interface EntryWithUserInfo extends LeaderboardCacheEntry {
+  entry: LeaderboardEntry;
 }
 
 const processingQueue: EntryWithoutUserInfo[] = [];
 
+function processEntriesWithUserInfo(
+  leaderboard: LeaderboardCacheEntry['leaderboard'],
+  entries: EntryWithUserInfo[]
+) {
+  leaderboard.addLeaderboardEntries(entries.map((e) => e.entry));
+}
+
 async function processEntriesWithoutUserInfo(entries: EntryWithoutUserInfo[]) {
   const entriesWithUserInfoOrNull = await Promise.all(
     entries.map(
-      async ({ haloCaches, esr, matchSkill, xuid, leaderboard, matchInfo }) => {
+      async ({
+        haloCaches,
+        entry,
+        leaderboard,
+      }): Promise<EntryWithUserInfo | null> => {
         try {
+          const userInfo = await haloCaches.usersCache.get(
+            wrapXuid(entry.xuid)
+          );
           return {
-            userInfo: await haloCaches.usersCache.get(wrapXuid(xuid)),
-            esr,
-            matchSkill,
             leaderboard,
-            matchInfo,
+            entry: {
+              ...entry,
+              xuid: userInfo.xuid,
+              gamertag: userInfo.gamertag,
+            },
           };
         } catch (e) {
-          console.warn(`Failed to get user info for ${xuid}`);
+          console.warn(`Failed to get user info for ${entry.xuid}`);
           return null;
         }
       }
@@ -55,7 +59,7 @@ async function processEntriesWithoutUserInfo(entries: EntryWithoutUserInfo[]) {
   );
 
   const entriesWithUserInfo = new Map<
-    Entry['leaderboard'],
+    LeaderboardCacheEntry['leaderboard'],
     EntryWithUserInfo[]
   >();
   for (const entry of entriesWithUserInfoOrNull) {
@@ -69,27 +73,13 @@ async function processEntriesWithoutUserInfo(entries: EntryWithoutUserInfo[]) {
   }
 
   for (const [leaderboard, entries] of entriesWithUserInfo) {
-    leaderboard.addLeaderboardEntries(
-      entries.map(({ userInfo, esr, matchSkill, matchInfo }) => ({
-        xuid: userInfo.xuid,
-        gamertag: userInfo.gamertag,
-        esr,
-        csr: matchSkill.RankRecap.PostMatchCsr.Value,
-        playlistAssetId: matchInfo.playlistAssetId,
-        gameVariantAssetId: matchInfo.gameVariantAssetId,
-        matchId: matchInfo.matchId,
-        matchDate: DateTime.fromISO(matchInfo.startTime).toMillis(),
-      }))
-    );
+    processEntriesWithUserInfo(leaderboard, entries);
   }
 }
 
 export async function queueLeaderboardEntryForProcessing(
   haloCaches: HaloCaches,
-  leaderboard: {
-    containsXuid(xuid: string): Promise<boolean>;
-    addLeaderboardEntries: (e: LeaderboardEntry[]) => void;
-  },
+  leaderboard: LeaderboardCacheEntry['leaderboard'],
   entries: {
     xuid: string;
     matchSkill: MatchSkill;
@@ -101,7 +91,11 @@ export async function queueLeaderboardEntryForProcessing(
     };
   }[]
 ) {
-  const entriesReadyForProcessing: EntryWithoutUserInfo[] = [];
+  const entriesWithUserInfo: EntryWithUserInfo[] = [];
+
+  const leaderboardEntriesPromise = leaderboard
+    .getEntries(entries.map((e) => wrapXuid(e.xuid)))
+    .catch(() => [] as LeaderboardEntry[]);
 
   for (const entry of entries) {
     const esr = skillRankCombined(entry.matchSkill, 'Expected');
@@ -109,32 +103,63 @@ export async function queueLeaderboardEntryForProcessing(
       continue;
     }
 
-    const entryWithoutUserInfo = {
-      xuid: wrapXuid(entry.xuid),
+    const entryWithoutUserInfo: EntryWithoutUserInfo = {
+      entry: {
+        xuid: wrapXuid(entry.xuid),
+        csr: entry.matchSkill.RankRecap.PostMatchCsr.Value,
+        esr,
+        matchDate: DateTime.fromISO(entry.matchInfo.startTime).toMillis(),
+        playlistAssetId: entry.matchInfo.playlistAssetId,
+        gameVariantAssetId: entry.matchInfo.gameVariantAssetId,
+        matchId: entry.matchInfo.matchId,
+      },
       haloCaches,
-      esr,
-      matchSkill: entry.matchSkill,
       leaderboard,
-      matchInfo: entry.matchInfo,
     };
-
-    if (
-      haloCaches.xuidCache.has(entry.xuid) ||
-      (await leaderboard.containsXuid(entry.xuid).catch(() => false))
-    ) {
-      // User info already on this machine, won't generate any additional calls to the API
-      entriesReadyForProcessing.push(entryWithoutUserInfo);
-    } else {
-      // User info not on this machine, will generate additional calls to the API
-      processingQueue.push(entryWithoutUserInfo);
+    if (!entryIsValidNoUserInfo(entryWithoutUserInfo.entry)) {
+      continue;
     }
+
+    if (haloCaches.xuidCache.has(entry.xuid)) {
+      // User info already in cache, won't generate any additional calls to the API
+      const userInfo = await haloCaches.xuidCache.get(wrapXuid(entry.xuid));
+      entriesWithUserInfo.push({
+        ...entryWithoutUserInfo,
+        entry: {
+          ...entryWithoutUserInfo.entry,
+          xuid: userInfo.xuid,
+          gamertag: userInfo.gamertag,
+        },
+      });
+      continue;
+    }
+
+    const leaderboardEntries = await leaderboardEntriesPromise;
+    const leaderboardEntry = leaderboardEntries.find(
+      (le) => le.xuid === wrapXuid(entry.xuid)
+    );
+    if (leaderboardEntry) {
+      // Leaderboard has info for this user
+      entriesWithUserInfo.push({
+        ...entryWithoutUserInfo,
+        entry: {
+          ...entryWithoutUserInfo.entry,
+          xuid: leaderboardEntry.xuid,
+          gamertag: leaderboardEntry.gamertag,
+        },
+      });
+      continue;
+    }
+
+    // User info not on this machine, will generate additional calls to the API
+    processingQueue.push(entryWithoutUserInfo);
   }
 
   if (processingQueue.length) {
     console.log('Processing queue length:', processingQueue.length);
   }
 
-  processEntriesWithoutUserInfo(entriesReadyForProcessing);
+  processEntriesWithUserInfo(leaderboard, entriesWithUserInfo);
 }
 
 setInterval(async () => {

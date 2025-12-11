@@ -1,4 +1,4 @@
-import { compareXuids, wrapXuid } from '@gravllift/halo-helpers';
+import { compareXuids, entryIsValid, wrapXuid } from '@gravllift/halo-helpers';
 import {
   MatchInfo,
   MatchSkill,
@@ -17,7 +17,7 @@ import {
 
 export async function fetchFullyLoadedMatch(
   leaderboard:
-    | Pick<ILeaderboardProvider, 'addLeaderboardEntries' | 'containsXuid'>
+    | Pick<ILeaderboardProvider, 'addLeaderboardEntries' | 'getEntries'>
     | undefined,
   match: { MatchId: string; MatchInfo: MatchInfo },
   users: { xuid: string }[],
@@ -86,6 +86,7 @@ export async function fetchFullyLoadedMatch(
 
   if (match.MatchInfo.Playlist?.AssetId && leaderboard) {
     const playlistAssetId = match.MatchInfo.Playlist.AssetId;
+    entryIsValid;
     queueLeaderboardEntryForProcessing(
       haloCaches,
       leaderboard,
@@ -170,7 +171,7 @@ export function fetchMatchProgressive(
     haloCaches: HaloCaches;
     loadUserData: boolean;
     leaderboard:
-      | Pick<ILeaderboardProvider, 'addLeaderboardEntries' | 'containsXuid'>
+      | Pick<ILeaderboardProvider, 'addLeaderboardEntries' | 'getEntries'>
       | undefined;
     _logger$?: Observer<string>;
   }

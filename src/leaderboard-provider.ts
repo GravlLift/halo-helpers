@@ -27,7 +27,6 @@ export interface ILeaderboardProvider {
   ): Promise<(LeaderboardEntry & { rank: number })[]>;
   getPlaylistEntriesCount(playlistAssetId: string): Promise<number>;
   getPlaylistAssetIds(): Promise<string[]>;
-  containsXuid(xuid: string): Promise<boolean>;
   getEntries(xuid: string[]): Promise<
     {
       xuid: string;

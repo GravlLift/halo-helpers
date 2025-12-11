@@ -11,14 +11,18 @@ export type LeaderboardEntry = {
   esr: number;
 };
 
-export function entryIsValid(entry: LeaderboardEntry | null) {
+export function entryIsValidNoUserInfo(
+  entry: Omit<LeaderboardEntry, 'xuid' | 'gamertag'> | null
+): entry is Omit<LeaderboardEntry, 'xuid' | 'gamertag'> {
   return (
-    entry &&
+    entry != null &&
     entry.csr > -1 &&
     entry.esr !== undefined &&
     entry.matchDate > DateTime.utc().minus({ days: 7 }).toMillis() &&
-    entry.matchDate < DateTime.utc().plus({ minutes: 5 }).toMillis() &&
-    entry.xuid &&
-    entry.gamertag
+    entry.matchDate < DateTime.utc().plus({ minutes: 5 }).toMillis()
   );
+}
+
+export function entryIsValid(entry: LeaderboardEntry | null) {
+  return entryIsValidNoUserInfo(entry) && entry.xuid && entry.gamertag;
 }

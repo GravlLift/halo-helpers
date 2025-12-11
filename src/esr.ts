@@ -9,7 +9,7 @@ import { skillRankCombined } from './skill-rank-helpers';
 
 export async function getPlayerEsrA(
   leaderboard:
-    | Pick<ILeaderboardProvider, 'addLeaderboardEntries' | 'containsXuid'>
+    | Pick<ILeaderboardProvider, 'addLeaderboardEntries' | 'getEntries'>
     | undefined,
   playlistVersionLink: Omit<AssetVersionLink, 'AssetKind'>,
   xuid: string,
