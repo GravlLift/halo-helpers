@@ -24,5 +24,5 @@ export function entryIsValidNoUserInfo(
 }
 
 export function entryIsValid(entry: LeaderboardEntry | null) {
-  return entryIsValidNoUserInfo(entry) && entry.xuid && entry.gamertag;
+  return entryIsValidNoUserInfo(entry) && !!entry.xuid && !!entry.gamertag;
 }

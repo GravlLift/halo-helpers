@@ -165,7 +165,7 @@ export async function queueLeaderboardEntryForProcessing(
 setInterval(async () => {
   if (processingQueue.length === 0) return;
 
-  const entries = processingQueue.splice(0, 8);
+  const entries = processingQueue.splice(0, 32);
 
   await processEntriesWithoutUserInfo(entries);
 
