@@ -21,8 +21,6 @@ interface EntryWithUserInfo extends LeaderboardCacheEntry {
   entry: LeaderboardEntry;
 }
 
-const processingQueue: EntryWithoutUserInfo[] = [];
-
 function processEntriesWithUserInfo(
   leaderboard: LeaderboardCacheEntry['leaderboard'],
   entries: EntryWithUserInfo[]
@@ -91,6 +89,7 @@ export async function queueLeaderboardEntryForProcessing(
     };
   }[]
 ) {
+  const entriesWithoutUserInfo: EntryWithoutUserInfo[] = [];
   const entriesWithUserInfo: EntryWithUserInfo[] = [];
 
   const leaderboardEntriesPromise = leaderboard
@@ -152,22 +151,12 @@ export async function queueLeaderboardEntryForProcessing(
     }
 
     // User info not on this machine, will generate additional calls to the API
-    processingQueue.push(entryWithoutUserInfo);
+    entriesWithoutUserInfo.push(entryWithoutUserInfo);
   }
 
-  if (processingQueue.length) {
-    console.log('Processing queue length:', processingQueue.length);
+  if (entriesWithoutUserInfo.length) {
+    processEntriesWithoutUserInfo(entriesWithoutUserInfo);
   }
 
   processEntriesWithUserInfo(leaderboard, entriesWithUserInfo);
 }
-
-setInterval(async () => {
-  if (processingQueue.length === 0) return;
-
-  const entries = processingQueue.splice(0, 32);
-
-  await processEntriesWithoutUserInfo(entries);
-
-  console.log('Processing queue length:', processingQueue.length);
-}, 5000);
