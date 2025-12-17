@@ -2,11 +2,12 @@
   "name": "@gravllift/halo-helpers",
   "version": "0.0.0",
   "private": true,
+  "type": "module",
   "main": "src/index.ts",
   "types": "src/index.ts",
   "dependencies": {
     "cockatiel": "^3.2.1",
-    "halo-infinite-api": "^14.0.0",
+    "halo-infinite-api": "^14.2.1",
     "luxon": "^3.7.2",
     "rxjs": "^7.8.2"
   },
