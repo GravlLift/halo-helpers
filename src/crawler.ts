@@ -1,9 +1,9 @@
 import { DateTime } from 'luxon';
-import { ILeaderboardProvider } from './leaderboard-provider';
-import { HaloCaches } from './halo-caches/halo-caches';
-import { wrapXuid } from './xuids';
-import { getPlayerMatches } from './player-matches';
 import { Subject } from 'rxjs';
+import { HaloCaches } from './halo-caches/halo-caches';
+import type { HiveMindLeaderboardProvider } from './hive-mind';
+import { getPlayerMatches } from './player-matches';
+import { wrapXuid } from './xuids';
 
 export async function crawlMatches(
   startingXuid: string,
@@ -13,9 +13,7 @@ export async function crawlMatches(
     haloCaches,
     leaderboard,
   }: {
-    leaderboard:
-      | Pick<ILeaderboardProvider, 'addLeaderboardEntries' | 'getEntries'>
-      | undefined;
+    leaderboard: HiveMindLeaderboardProvider | undefined;
     haloCaches: HaloCaches;
     signal: AbortSignal;
   },

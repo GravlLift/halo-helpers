@@ -15,3 +15,4 @@ export * from './skill-rank-helpers';
 export * from './request-policy';
 export * from './crawler';
 export * from './hive-mind';
+export * from './discovery-tiebreaker';

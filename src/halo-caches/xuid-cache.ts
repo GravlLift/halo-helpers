@@ -8,22 +8,19 @@ import {
 import { DelegateBackoff, handleWhen, retry, wrap } from 'cockatiel';
 import { HaloInfiniteClient, XboxClient } from 'halo-infinite-api';
 import {
-  bufferWhen,
+  bufferToggle,
   concatMap,
   filter,
   firstValueFrom,
   map,
   merge,
   share,
+  skip,
   Subject,
-  tap,
-  timer,
-  asyncScheduler,
-  observeOn,
-  bufferToggle,
   take,
+  tap,
   throttle,
-  scan,
+  timer,
 } from 'rxjs';
 import { isRequestError } from '../error-helpers';
 import { networkFailurePolicy } from '../request-policy';
@@ -100,14 +97,11 @@ export function createXuidCache(
   const xuidBuffer = xuidInputSubject.pipe(
     bufferToggle(bufferOpen$, () =>
       merge(
+        xuidInput$.pipe(skip(31), take(1)),
         xuidInput$.pipe(filter(() => !isFetching)),
-        xuidInput$.pipe(
-          scan((count) => count + 1, 0),
-          filter((count) => count >= 32)
-        ),
         fetchCompleted$,
         timer(500)
-      ).pipe(take(1), observeOn(asyncScheduler))
+      ).pipe(take(1))
     ),
     tap(() => {
       // Signal that the buffer closed so the next opening can occur

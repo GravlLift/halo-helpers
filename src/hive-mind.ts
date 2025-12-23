@@ -23,18 +23,25 @@ import {
   selfId,
 } from 'trystero';
 
+export type HiveMindLeaderboardProvider = Pick<
+  ILeaderboardProvider,
+  | 'addLeaderboardEntries'
+  | 'getEntries'
+  | 'getAllEntries'
+  | 'getCurrentKnowledge'
+  | 'getDeltaEntries'
+  | 'getDiscovererId'
+>;
+
 type RoomLeaderboard = {
   room: Room;
-  leaderboardProvider: Pick<
-    ILeaderboardProvider,
-    'addLeaderboardEntries' | 'getEntries'
-  >;
+  leaderboardProvider: HiveMindLeaderboardProvider;
   reconnect: () => void;
 };
 let roomLeaderboard: RoomLeaderboard | undefined;
 
 let sendCsrEntriesAction: PrettyAction<LeaderboardEntry[]>;
-let requestEntriesAction: PrettyAction<null>;
+let requestEntriesAction: PrettyAction<Record<string, number> | null>;
 const reconnectPolicy = retry(
   handleWhen(
     (e) =>
@@ -51,11 +58,12 @@ reconnectPolicy.onFailure(({ handled }) => {
 });
 
 setInterval(() => {
-  if (
-    roomLeaderboard &&
-    Object.keys(roomLeaderboard.room.getPeers()).length === 0
-  ) {
-    roomLeaderboard.reconnect();
+  if (roomLeaderboard) {
+    if (Object.keys(roomLeaderboard.room.getPeers()).length === 0) {
+      roomLeaderboard.reconnect();
+    } else {
+      requestEntries();
+    }
   }
 }, 5000);
 
@@ -85,10 +93,7 @@ const requestEntriesCalls = new Set<string>();
 const peerJoined$ = new Subject<string>();
 
 export function ensureJoin(
-  leaderboard: Pick<
-    ILeaderboardProvider,
-    'addLeaderboardEntries' | 'getEntries' | 'getAllEntries'
-  >,
+  leaderboard: HiveMindLeaderboardProvider,
   rtcPolyfill: unknown
 ) {
   try {
@@ -116,30 +121,11 @@ export function ensureJoin(
       roomLeaderboard.room,
       'sendCsrs'
     );
-    requestEntriesAction = makePrettyAction<null>(
+    requestEntriesAction = makePrettyAction<Record<string, number> | null>(
       roomLeaderboard.room,
       'request'
     );
 
-    peerJoined$.pipe(bufferTime(2000)).subscribe((newPeers) => {
-      for (const peerId of newPeers) {
-        // Roll a random number to determine if we should send all csr entries,
-        // such that the expected number of senders is 4
-        if (
-          roomLeaderboard &&
-          Math.random() <
-            4 / Math.max(1, Object.keys(roomLeaderboard.room.getPeers()).length)
-        ) {
-          // Don't await
-          leaderboard
-            .getAllEntries()
-            .then((buffer) => sendEntriesToPeer(buffer, peerId))
-            .catch((e) => {
-              console.error(e);
-            });
-        }
-      }
-    });
     roomLeaderboard.room.onPeerJoin(async (peerId) => {
       _peerStatus$.next({ ..._peerStatus$.value, [peerId]: null });
       peerJoined$.next(peerId);
@@ -152,24 +138,47 @@ export function ensureJoin(
     sendCsrEntriesAction.onProgress((percent, peerId) => {
       _peerStatus$.next({ ..._peerStatus$.value, [peerId]: percent });
     });
-    sendCsrEntriesAction.onReceive((data, peerId) => {
+    sendCsrEntriesAction.onReceive(async (data, peerId) => {
       _peerStatus$.next({ ..._peerStatus$.value, [peerId]: null });
+      console.debug(
+        `[${peerId}]: Here are ${data.length} entries that I believe are new to you.`
+      );
       leaderboard.addLeaderboardEntries(data);
     });
 
-    requestEntriesAction.onReceive(async (_, peerId) => {
+    requestEntriesAction.onReceive(async (peerKnowledgeMap, peerId) => {
       if (requestEntriesCalls.has(peerId)) {
         return;
       }
       requestEntriesCalls.add(peerId);
 
       try {
-        const buffer: LeaderboardEntry[] = await leaderboard.getAllEntries();
-        await sendEntriesToPeer(buffer, peerId).finally(() => {
-          requestEntriesCalls.delete(peerId);
-        });
+        let entries: LeaderboardEntry[] = [];
+        if (peerKnowledgeMap) {
+          console.debug(`[${peerId}]: My knowledge map is`, peerKnowledgeMap);
+          entries = await leaderboard.getDeltaEntries(peerKnowledgeMap);
+          const knowledgeMap = await leaderboard.getCurrentKnowledge();
+          console.debug(`[self]: My knowledge map is`, knowledgeMap);
+          if (entries.length > 0) {
+            console.debug(
+              `[self]: I know about ${entries.length} new entries that peer ${peerId} didn't know about.`
+            );
+          } else {
+            console.debug(
+              `[self]: I don't have any new entries to send to peer ${peerId}.`
+            );
+          }
+        } else {
+          entries = await leaderboard.getAllEntries();
+        }
+
+        if (entries.length > 0) {
+          await sendEntriesToPeer(entries, peerId);
+        }
       } catch (e) {
         console.error(e);
+      } finally {
+        requestEntriesCalls.delete(peerId);
       }
     });
   } catch (e) {
@@ -269,6 +278,11 @@ export const requestEntries = async () => {
 
   // Choose 4 peers at random and request
   let peers = Object.keys(roomLeaderboard.room.getPeers());
+  if (peers.length === 0) {
+    console.warn('No peers available to request entries from.');
+    return;
+  }
+
   let chosenPeers: Set<string>;
   if (peers.length <= 4) {
     chosenPeers = new Set(peers);
@@ -280,32 +294,17 @@ export const requestEntries = async () => {
       peers = peers.splice(randomIndex, 1);
     }
   }
-  for (let i = 0; i < 4; i++) {
-    if (i > chosenPeers.size - 1 && roomLeaderboard) {
-      // Not enough chosen peers, recheck for new peers
-      let newPeers = Object.keys(roomLeaderboard.room.getPeers()).filter(
-        (peer) => !chosenPeers.has(peer)
-      );
-      if (newPeers.length === 0) {
-        // Wait for another peer to connect.
-        newPeers = await firstValueFrom(
-          _peerStatus$.pipe(
-            map((peers) =>
-              Object.keys(peers)
-                .filter((peer) => !chosenPeers.has(peer))
-                .slice(0, 4)
-            ),
-            filter((np) => np.length > 0)
-          )
-        );
-        newPeers.forEach((peer) => chosenPeers.add(peer));
-      }
+  const knowledgeMap =
+    await roomLeaderboard.leaderboardProvider.getCurrentKnowledge();
+  for (const peerId of chosenPeers) {
+    if (!roomLeaderboard) {
+      return;
     }
-
-    const peerId = chosenPeers.values().next();
-    // Don't await
-    reconnectPolicy.execute(() =>
-      requestEntriesAction.send(null, peerId.value)
+    await reconnectPolicy.execute(async () =>
+      requestEntriesAction.send(
+        Object.fromEntries(knowledgeMap.entries()),
+        peerId
+      )
     );
   }
 };

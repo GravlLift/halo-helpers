@@ -1,19 +1,17 @@
-import { HaloCaches } from './halo-caches/halo-caches';
 import { MemoryCache } from '@gravllift/utilities';
 import { PlayerMatchHistory } from 'halo-infinite-api';
 import { DateTime } from 'luxon';
 import { Observer } from 'rxjs';
 import { fetchFullyLoadedMatch } from './fully-loaded-match';
-import { ILeaderboardProvider } from './leaderboard-provider';
+import { HaloCaches } from './halo-caches/halo-caches';
+import { HiveMindLeaderboardProvider } from './hive-mind';
 import { PlayerMatchHistoryStatsSkill } from './player-match-history-stats-skill';
 import { compareXuids } from './xuids';
 
 const maxSimultaneousRequests = 8;
 
 export async function* getPlayerMatches(
-  leaderboard:
-    | Pick<ILeaderboardProvider, 'addLeaderboardEntries' | 'getEntries'>
-    | undefined,
+  leaderboard: HiveMindLeaderboardProvider | undefined,
   gamertags: string[],
   options: {
     limit: number;
@@ -68,9 +66,7 @@ export async function* getPlayerMatches(
         leaderboard,
         match,
       }: {
-        leaderboard:
-          | Pick<ILeaderboardProvider, 'addLeaderboardEntries' | 'getEntries'>
-          | undefined;
+        leaderboard: HiveMindLeaderboardProvider | undefined;
         match: PlayerMatchHistory;
       },
       signal
@@ -180,7 +176,7 @@ export async function* getPlayerMatches(
     }
 
     earliestMatchMillis = Math.min(
-      ...matches.map((m) => DateTime.fromISO(m.MatchInfo.StartTime).toMillis())
+      ...matches.map((m) => DateTime.fromISO(m.MatchInfo.EndTime).toMillis())
     );
 
     logger$?.next(

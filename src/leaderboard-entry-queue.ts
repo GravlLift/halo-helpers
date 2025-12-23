@@ -1,15 +1,12 @@
-import { HaloCaches } from './halo-caches/halo-caches';
-import { ILeaderboardProvider, wrapXuid } from '@gravllift/halo-helpers';
+import { HiveMindLeaderboardProvider, wrapXuid } from '@gravllift/halo-helpers';
 import { MatchSkill } from 'halo-infinite-api';
 import { DateTime } from 'luxon';
+import { HaloCaches } from './halo-caches/halo-caches';
 import { entryIsValidNoUserInfo, LeaderboardEntry } from './leaderboard-entry';
 import { skillRankCombined } from './skill-rank-helpers';
 
 interface LeaderboardCacheEntry {
-  leaderboard: Pick<
-    ILeaderboardProvider,
-    'addLeaderboardEntries' | 'getEntries'
-  >;
+  leaderboard: HiveMindLeaderboardProvider;
 }
 
 interface EntryWithoutUserInfo extends LeaderboardCacheEntry {
@@ -82,7 +79,7 @@ export async function queueLeaderboardEntryForProcessing(
     xuid: string;
     matchSkill: MatchSkill;
     matchInfo: {
-      startTime: string;
+      endTime: string;
       playlistAssetId: string;
       gameVariantAssetId: string;
       matchId: string;
@@ -96,6 +93,12 @@ export async function queueLeaderboardEntryForProcessing(
     .getEntries(entries.map((e) => wrapXuid(e.xuid)))
     .catch(() => [] as LeaderboardEntry[]);
 
+  const [discovererId, currentKnowledge] = await Promise.all([
+    leaderboard.getDiscovererId(),
+    leaderboard.getCurrentKnowledge(),
+  ]);
+  const lastVersion = currentKnowledge.get(discovererId) ?? 0;
+
   for (const entry of entries) {
     const esr = skillRankCombined(entry.matchSkill, 'Expected');
     if (esr == null) {
@@ -107,10 +110,12 @@ export async function queueLeaderboardEntryForProcessing(
         xuid: wrapXuid(entry.xuid),
         csr: entry.matchSkill.RankRecap.PostMatchCsr.Value,
         esr,
-        matchDate: DateTime.fromISO(entry.matchInfo.startTime).toMillis(),
+        matchDate: DateTime.fromISO(entry.matchInfo.endTime).toMillis(),
         playlistAssetId: entry.matchInfo.playlistAssetId,
         gameVariantAssetId: entry.matchInfo.gameVariantAssetId,
         matchId: entry.matchInfo.matchId,
+        discoverySource: discovererId,
+        discoveryVersion: lastVersion + 1,
       },
       haloCaches,
       leaderboard,
@@ -159,4 +164,10 @@ export async function queueLeaderboardEntryForProcessing(
   }
 
   processEntriesWithUserInfo(leaderboard, entriesWithUserInfo);
+
+  const discoveredEntries =
+    entriesWithUserInfo.length + entriesWithoutUserInfo.length;
+  if (discoveredEntries > 0) {
+    console.debug(`Discovered ${discoveredEntries} new leaderboard entries.`);
+  }
 }

@@ -1,4 +1,9 @@
-import { compareXuids, entryIsValid, wrapXuid } from '@gravllift/halo-helpers';
+import {
+  compareXuids,
+  entryIsValid,
+  HiveMindLeaderboardProvider,
+  wrapXuid,
+} from '@gravllift/halo-helpers';
 import {
   MatchInfo,
   MatchSkill,
@@ -16,9 +21,7 @@ import {
 } from './player-match-history-stats-skill';
 
 export async function fetchFullyLoadedMatch(
-  leaderboard:
-    | Pick<ILeaderboardProvider, 'addLeaderboardEntries' | 'getEntries'>
-    | undefined,
+  leaderboard: HiveMindLeaderboardProvider | undefined,
   match: { MatchId: string; MatchInfo: MatchInfo },
   users: { xuid: string }[],
   signal: AbortSignal,
@@ -97,7 +100,7 @@ export async function fetchFullyLoadedMatch(
         )
         .map((s) => ({
           matchInfo: {
-            startTime: match.MatchInfo.StartTime,
+            endTime: match.MatchInfo.EndTime,
             playlistAssetId,
             gameVariantAssetId: match.MatchInfo.UgcGameVariant?.AssetId ?? '',
             matchId: match.MatchId,
@@ -170,9 +173,7 @@ export function fetchMatchProgressive(
     signal: AbortSignal;
     haloCaches: HaloCaches;
     loadUserData: boolean;
-    leaderboard:
-      | Pick<ILeaderboardProvider, 'addLeaderboardEntries' | 'getEntries'>
-      | undefined;
+    leaderboard: HiveMindLeaderboardProvider | undefined;
     _logger$?: Observer<string>;
   }
 ): Subscribable<ProgressiveMatch> {
@@ -326,7 +327,7 @@ export function fetchMatchProgressive(
             )
             .map((s) => ({
               matchInfo: {
-                startTime: match.MatchInfo.StartTime,
+                endTime: match.MatchInfo.EndTime,
                 playlistAssetId,
                 gameVariantAssetId:
                   match.MatchInfo.UgcGameVariant?.AssetId ?? '',

@@ -1,16 +1,17 @@
 import { HaloCaches } from './halo-caches/halo-caches';
 import '@gravllift/utilities';
-import { compareXuids, wrapXuid } from '@gravllift/halo-helpers';
+import {
+  compareXuids,
+  HiveMindLeaderboardProvider,
+  wrapXuid,
+} from '@gravllift/halo-helpers';
 import { AssetVersionLink } from 'halo-infinite-api';
 import { DateTime } from 'luxon';
-import { ILeaderboardProvider } from './leaderboard-provider';
 import { getPlayerMatches } from './player-matches';
 import { skillRankCombined } from './skill-rank-helpers';
 
 export async function getPlayerEsrA(
-  leaderboard:
-    | Pick<ILeaderboardProvider, 'addLeaderboardEntries' | 'getEntries'>
-    | undefined,
+  leaderboard: HiveMindLeaderboardProvider | undefined,
   playlistVersionLink: Omit<AssetVersionLink, 'AssetKind'>,
   xuid: string,
   asOf: DateTime,
@@ -49,7 +50,7 @@ export async function getPlayerEsrA(
               if (
                 m.MatchInfo.Playlist?.AssetId !== playlistVersionLink.AssetId ||
                 m.MatchInfo.UgcGameVariant.AssetId !== id ||
-                DateTime.fromISO(m.MatchInfo.StartTime).toMillis() >
+                DateTime.fromISO(m.MatchInfo.EndTime).toMillis() >
                   asOf.toMillis()
               ) {
                 return false;

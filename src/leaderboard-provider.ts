@@ -33,4 +33,9 @@ export interface ILeaderboardProvider {
       gamertag: string;
     }[]
   >;
+  getCurrentKnowledge: () => Promise<Map<string, number>>;
+  getDeltaEntries(
+    knowledges: Record<string, number>
+  ): Promise<LeaderboardEntry[]>;
+  getDiscovererId: () => Promise<string>;
 }

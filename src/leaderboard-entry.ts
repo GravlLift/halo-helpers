@@ -1,19 +1,40 @@
 import { DateTime } from 'luxon';
 
+export enum LeaderboardEntryKeys {
+  Xuid = 'xuid',
+  PlaylistAssetId = 'playlistAssetId',
+  GameVariantAssetId = 'gameVariantAssetId',
+  Gamertag = 'gamertag',
+  MatchId = 'matchId',
+  MatchDate = 'matchDate',
+  Csr = 'csr',
+  Esr = 'esr',
+  DiscoverySource = 'discoverySource',
+  DiscoveryVersion = 'discoveryVersion',
+}
+
 export type LeaderboardEntry = {
-  xuid: string;
-  playlistAssetId: string;
-  gameVariantAssetId: string;
-  gamertag: string;
-  matchId: string;
-  matchDate: number;
-  csr: number;
-  esr: number;
+  [LeaderboardEntryKeys.Xuid]: string;
+  [LeaderboardEntryKeys.PlaylistAssetId]: string;
+  [LeaderboardEntryKeys.GameVariantAssetId]: string;
+  [LeaderboardEntryKeys.Gamertag]: string;
+  [LeaderboardEntryKeys.MatchId]: string;
+  [LeaderboardEntryKeys.MatchDate]: number;
+  [LeaderboardEntryKeys.Csr]: number;
+  [LeaderboardEntryKeys.Esr]: number;
+  [LeaderboardEntryKeys.DiscoverySource]: string;
+  [LeaderboardEntryKeys.DiscoveryVersion]: number;
 };
 
 export function entryIsValidNoUserInfo(
-  entry: Omit<LeaderboardEntry, 'xuid' | 'gamertag'> | null
-): entry is Omit<LeaderboardEntry, 'xuid' | 'gamertag'> {
+  entry: Omit<
+    LeaderboardEntry,
+    LeaderboardEntryKeys.Xuid | LeaderboardEntryKeys.Gamertag
+  > | null
+): entry is Omit<
+  LeaderboardEntry,
+  LeaderboardEntryKeys.Xuid | LeaderboardEntryKeys.Gamertag
+> {
   return (
     entry != null &&
     entry.csr > -1 &&
