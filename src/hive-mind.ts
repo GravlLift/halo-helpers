@@ -159,20 +159,33 @@ export function ensureJoin(
       try {
         let entries: LeaderboardEntry[] = [];
         if (peerKnowledgeMap) {
-          console.debug(`[${peerId}]: My knowledge map is`, peerKnowledgeMap);
-          entries = await leaderboard.getDeltaEntries(peerKnowledgeMap);
-          const knowledgeMap = await leaderboard.getCurrentKnowledge();
           console.debug(
-            `[${selfId} (self)]: My knowledge map is`,
-            knowledgeMap
+            `[${peerId} => ${selfId} (self)]: My knowledge map is`,
+            peerKnowledgeMap
           );
+          let knowledgeMap: Map<string, number>;
+          [entries, knowledgeMap] = await Promise.all([
+            leaderboard.getDeltaEntries(peerKnowledgeMap).then((e) => {
+              console.debug(
+                `[${selfId} (self) => ${peerId}]: Prepared ${e.length} delta entries to send.`
+              );
+              return e;
+            }),
+            leaderboard.getCurrentKnowledge().then((k) => {
+              console.debug(
+                `[${selfId} (self) => ${peerId}]: My knowledge map is`,
+                k
+              );
+              return k;
+            }),
+          ]);
           if (entries.length > 0) {
             console.debug(
-              `[${selfId} (self)]: I know about ${entries.length} new entries that peer ${peerId} didn't know about.`
+              `[${selfId} (self) => ${peerId}]: I know about ${entries.length} new entries that peer ${peerId} didn't know about.`
             );
           } else {
             console.debug(
-              `[${selfId} (self)]: I don't have any new entries to send to peer ${peerId}.`
+              `[${selfId} (self) => ${peerId}]: I don't have any new entries to send to peer ${peerId}.`
             );
           }
         } else {
@@ -188,6 +201,8 @@ export function ensureJoin(
         requestEntriesCalls.delete(peerId);
       }
     });
+
+    requestEntries();
   } catch (e) {
     if (
       e instanceof Error &&
@@ -309,7 +324,7 @@ export const requestEntries = async () => {
       return;
     }
     console.debug(
-      `[${selfId} (self)]: Peer ${peerId}, what entries do you know about?`
+      `[${selfId} (self) => ${peerId}]: What entries do you know about?`
     );
     await reconnectPolicy.execute(async () =>
       requestEntriesAction.send(
