@@ -134,7 +134,7 @@ export function ensureJoin(
     sendCsrEntriesAction.onReceive(async (data, peerId) => {
       _peerStatus$.next({ ..._peerStatus$.value, [peerId]: null });
       console.debug(
-        `[${peerId}]: Here are ${data.length} entries that I believe are new to you.`
+        `[${peerId} => ${selfId} (self)]: Here are ${data.length} entries that I believe are new to you.`
       );
       const actuallyNew = await leaderboard.addLeaderboardEntries(data);
       const knowledgeMapDiff = new Map<string, number>();
@@ -145,13 +145,16 @@ export function ensureJoin(
         }
       }
       console.debug(
-        `[${selfId} (self)]: Added ${actuallyNew.length} new entries from peer ${peerId}. My new knowledge gained:`,
+        `[${selfId} (self) => ${peerId}]: Added ${actuallyNew.length} new entries. My new knowledge gained:`,
         knowledgeMapDiff
       );
     });
 
     requestEntriesAction.onReceive(async (peerKnowledgeMap, peerId) => {
       if (requestEntriesCalls.has(peerId)) {
+        console.debug(
+          `[${selfId} (self) => ${peerId}]: I'm still thinking from your last request, please wait.`
+        );
         return;
       }
       requestEntriesCalls.add(peerId);
