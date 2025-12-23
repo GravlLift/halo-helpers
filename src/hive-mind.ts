@@ -96,7 +96,7 @@ export function ensureJoin(
           appId: 'halo-query',
           rtcPolyfill,
         } as BaseRoomConfig & RelayConfig,
-        'leaderboard-2'
+        'leaderboard-3'
       ),
       leaderboardProvider: leaderboard,
 
