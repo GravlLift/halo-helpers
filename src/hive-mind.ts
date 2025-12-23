@@ -3,14 +3,7 @@ import type {
   LeaderboardEntry,
 } from '@gravllift/halo-helpers';
 import { handleWhen, retry } from 'cockatiel';
-import {
-  BehaviorSubject,
-  Subject,
-  bufferTime,
-  filter,
-  firstValueFrom,
-  map,
-} from 'rxjs';
+import { BehaviorSubject, Subject, bufferTime, filter, map } from 'rxjs';
 import {
   ActionProgress,
   ActionReceiver,

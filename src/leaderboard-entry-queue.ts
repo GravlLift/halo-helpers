@@ -165,9 +165,9 @@ export async function queueLeaderboardEntryForProcessing(
 
   processEntriesWithUserInfo(leaderboard, entriesWithUserInfo);
 
-  const discoveredEntries =
+  const entriesToProcess =
     entriesWithUserInfo.length + entriesWithoutUserInfo.length;
-  if (discoveredEntries > 0) {
-    console.debug(`Discovered ${discoveredEntries} new leaderboard entries.`);
+  if (entriesToProcess > 0) {
+    console.debug(`Processing ${entriesToProcess} leaderboard entries.`);
   }
 }
