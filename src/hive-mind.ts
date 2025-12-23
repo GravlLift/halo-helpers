@@ -58,7 +58,7 @@ setInterval(() => {
       requestEntries();
     }
   }
-}, 5000);
+}, 15000);
 
 interface PrettyAction<T> {
   send: ActionSender<T>;
@@ -136,7 +136,18 @@ export function ensureJoin(
       console.debug(
         `[${peerId}]: Here are ${data.length} entries that I believe are new to you.`
       );
-      leaderboard.addLeaderboardEntries(data);
+      const actuallyNew = await leaderboard.addLeaderboardEntries(data);
+      const knowledgeMapDiff = new Map<string, number>();
+      for (const entry of actuallyNew) {
+        const currentVersion = knowledgeMapDiff.get(entry.discoverySource) ?? 1;
+        if (entry.discoveryVersion > currentVersion) {
+          knowledgeMapDiff.set(entry.discoverySource, entry.discoveryVersion);
+        }
+      }
+      console.debug(
+        `[${selfId} (self)]: Added ${actuallyNew.length} new entries from peer ${peerId}. My new knowledge gained:`,
+        knowledgeMapDiff
+      );
     });
 
     requestEntriesAction.onReceive(async (peerKnowledgeMap, peerId) => {
@@ -151,14 +162,17 @@ export function ensureJoin(
           console.debug(`[${peerId}]: My knowledge map is`, peerKnowledgeMap);
           entries = await leaderboard.getDeltaEntries(peerKnowledgeMap);
           const knowledgeMap = await leaderboard.getCurrentKnowledge();
-          console.debug(`[self]: My knowledge map is`, knowledgeMap);
+          console.debug(
+            `[${selfId} (self)]: My knowledge map is`,
+            knowledgeMap
+          );
           if (entries.length > 0) {
             console.debug(
-              `[self]: I know about ${entries.length} new entries that peer ${peerId} didn't know about.`
+              `[${selfId} (self)]: I know about ${entries.length} new entries that peer ${peerId} didn't know about.`
             );
           } else {
             console.debug(
-              `[self]: I don't have any new entries to send to peer ${peerId}.`
+              `[${selfId} (self)]: I don't have any new entries to send to peer ${peerId}.`
             );
           }
         } else {
@@ -264,12 +278,13 @@ export const sendLeaderboardEntriesToAllPeers = (data: LeaderboardEntry[]) => {
   sendEntriesToAllSubject$.next(data);
 };
 
+const peerCount = 1;
 export const requestEntries = async () => {
   if (!roomLeaderboard) {
     return;
   }
 
-  // Choose 4 peers at random and request
+  // Choose peer(s) at random and request
   let peers = Object.keys(roomLeaderboard.room.getPeers());
   if (peers.length === 0) {
     console.warn('No peers available to request entries from.');
@@ -277,11 +292,11 @@ export const requestEntries = async () => {
   }
 
   let chosenPeers: Set<string>;
-  if (peers.length <= 4) {
+  if (peers.length <= peerCount) {
     chosenPeers = new Set(peers);
   } else {
     chosenPeers = new Set();
-    while (chosenPeers.size < 4) {
+    while (chosenPeers.size < peerCount) {
       const randomIndex = Math.floor(Math.random() * peers.length);
       chosenPeers.add(peers[randomIndex]);
       peers = peers.splice(randomIndex, 1);
@@ -293,6 +308,9 @@ export const requestEntries = async () => {
     if (!roomLeaderboard) {
       return;
     }
+    console.debug(
+      `[${selfId} (self)]: Peer ${peerId}, what entries do you know about?`
+    );
     await reconnectPolicy.execute(async () =>
       requestEntriesAction.send(
         Object.fromEntries(knowledgeMap.entries()),
