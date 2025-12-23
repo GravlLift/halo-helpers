@@ -58,7 +58,7 @@ setInterval(() => {
       requestEntries();
     }
   }
-}, 15000);
+}, 5000);
 
 interface PrettyAction<T> {
   send: ActionSender<T>;
@@ -293,7 +293,7 @@ export const sendLeaderboardEntriesToAllPeers = (data: LeaderboardEntry[]) => {
   sendEntriesToAllSubject$.next(data);
 };
 
-const peerCount = 1;
+const peerCount = 4;
 export const requestEntries = async () => {
   if (!roomLeaderboard) {
     return;
