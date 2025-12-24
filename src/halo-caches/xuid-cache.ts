@@ -10,10 +10,12 @@ import { HaloInfiniteClient, XboxClient } from 'halo-infinite-api';
 import {
   bufferToggle,
   concatMap,
+  delay,
   filter,
   firstValueFrom,
   map,
   merge,
+  of,
   share,
   skip,
   Subject,
@@ -83,6 +85,8 @@ export function createXuidCache(
 
   let isFetching = false;
   const fetchCompleted$ = new Subject<void>();
+  // Track XUIDs that are awaiting resolution (normalized)
+  const awaitingXuids = new Set<string>();
 
   const xuidInput$ = xuidInputSubject.pipe(share());
 
@@ -94,15 +98,26 @@ export function createXuidCache(
     throttle(() => bufferClosed$, { leading: true, trailing: false })
   );
 
-  const xuidBuffer = xuidInputSubject.pipe(
-    bufferToggle(bufferOpen$, () =>
-      merge(
+  // Ensure the opener request is included in the buffer:
+  // we synthesize the opening item into the buffered source after the open event.
+  const sourceForBuffer$ = merge(
+    xuidInput$,
+    bufferOpen$.pipe(concatMap((req) => of(req).pipe(delay(0))))
+  );
+
+  const xuidBuffer = sourceForBuffer$.pipe(
+    bufferToggle(bufferOpen$, () => {
+      return merge(
+        // Close when 32 items collected
         xuidInput$.pipe(skip(31), take(1)),
+        // Close if a new input arrives while not currently fetching (ready to flush)
         xuidInput$.pipe(filter(() => !isFetching)),
+        // Close when a previous fetch completes (let next batch start)
         fetchCompleted$,
+        // Close on time to avoid starvation
         timer(500)
-      ).pipe(take(1))
-    ),
+      ).pipe(take(1));
+    }),
     tap(() => {
       // Signal that the buffer closed so the next opening can occur
       bufferClosed$.next();
@@ -183,13 +198,20 @@ export function createXuidCache(
               filter(
                 (result): result is { xuid: string; gamertag: string } =>
                   result != null
-              )
+              ),
+              tap(({ xuid }) => {
+                awaitingXuids.delete(xuid);
+              })
             )
           );
-          xuidInputSubject.next({
-            xuid,
-            signal: signal ?? new AbortController().signal,
-          });
+
+          if (!awaitingXuids.has(xuid)) {
+            awaitingXuids.add(xuid);
+            xuidInputSubject.next({
+              xuid,
+              signal: signal ?? new AbortController().signal,
+            });
+          }
           return resultPromise;
         },
       },

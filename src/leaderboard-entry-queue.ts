@@ -126,7 +126,7 @@ export async function queueLeaderboardEntryForProcessing(
 
     if (haloCaches.xuidCache.has(entry.xuid)) {
       // User info already in cache, won't generate any additional calls to the API
-      const userInfo = await haloCaches.xuidCache.get(wrapXuid(entry.xuid));
+      const userInfo = await haloCaches.usersCache.get(wrapXuid(entry.xuid));
       entriesWithUserInfo.push({
         ...entryWithoutUserInfo,
         entry: {

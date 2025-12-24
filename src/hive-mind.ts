@@ -133,28 +133,11 @@ export function ensureJoin(
     });
     sendCsrEntriesAction.onReceive(async (data, peerId) => {
       _peerStatus$.next({ ..._peerStatus$.value, [peerId]: null });
-      console.debug(
-        `[${peerId} => ${selfId} (self)]: Here are ${data.length} entries that I believe are new to you.`
-      );
-      const actuallyNew = await leaderboard.addLeaderboardEntries(data);
-      const knowledgeMapDiff = new Map<string, number>();
-      for (const entry of actuallyNew) {
-        const currentVersion = knowledgeMapDiff.get(entry.discoverySource) ?? 1;
-        if (entry.discoveryVersion > currentVersion) {
-          knowledgeMapDiff.set(entry.discoverySource, entry.discoveryVersion);
-        }
-      }
-      console.debug(
-        `[${selfId} (self) => ${peerId}]: Added ${actuallyNew.length} new entries. My new knowledge gained:`,
-        knowledgeMapDiff
-      );
+      await leaderboard.addLeaderboardEntries(data);
     });
 
     requestEntriesAction.onReceive(async (peerKnowledgeMap, peerId) => {
       if (requestEntriesCalls.has(peerId)) {
-        console.debug(
-          `[${selfId} (self) => ${peerId}]: I'm still thinking from your last request, please wait.`
-        );
         return;
       }
       requestEntriesCalls.add(peerId);
@@ -162,35 +145,7 @@ export function ensureJoin(
       try {
         let entries: LeaderboardEntry[] = [];
         if (peerKnowledgeMap) {
-          console.debug(
-            `[${peerId} => ${selfId} (self)]: My knowledge map is`,
-            peerKnowledgeMap
-          );
-          let knowledgeMap: Map<string, number>;
-          [entries, knowledgeMap] = await Promise.all([
-            leaderboard.getDeltaEntries(peerKnowledgeMap).then((e) => {
-              console.debug(
-                `[${selfId} (self) => ${peerId}]: Prepared ${e.length} delta entries to send.`
-              );
-              return e;
-            }),
-            leaderboard.getCurrentKnowledge().then((k) => {
-              console.debug(
-                `[${selfId} (self) => ${peerId}]: My knowledge map is`,
-                k
-              );
-              return k;
-            }),
-          ]);
-          if (entries.length > 0) {
-            console.debug(
-              `[${selfId} (self) => ${peerId}]: I know about ${entries.length} new entries that peer ${peerId} didn't know about.`
-            );
-          } else {
-            console.debug(
-              `[${selfId} (self) => ${peerId}]: I don't have any new entries to send to peer ${peerId}.`
-            );
-          }
+          entries = await leaderboard.getDeltaEntries(peerKnowledgeMap);
         } else {
           entries = await leaderboard.getAllEntries();
         }
@@ -326,9 +281,6 @@ export const requestEntries = async () => {
     if (!roomLeaderboard) {
       return;
     }
-    console.debug(
-      `[${selfId} (self) => ${peerId}]: What entries do you know about?`
-    );
     await reconnectPolicy.execute(async () =>
       requestEntriesAction.send(
         Object.fromEntries(knowledgeMap.entries()),
