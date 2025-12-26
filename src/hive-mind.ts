@@ -154,6 +154,20 @@ export function ensureJoin(
       try {
         let entries: LeaderboardEntry[] = [];
         if (peerKnowledgeMap) {
+          leaderboard.getCurrentKnowledge().then(async (knowledgeMap) => {
+            for (const [key, value] of Object.entries(peerKnowledgeMap)) {
+              const currentVersion = knowledgeMap.get(key) ?? -1;
+              if (value > currentVersion) {
+                // Peer has more recent data than us, request their entries
+                await requestEntriesAction.send(
+                  Object.fromEntries(knowledgeMap),
+                  peerId
+                );
+                return;
+              }
+            }
+          });
+
           entries = await leaderboard.getDeltaEntries(peerKnowledgeMap);
         } else {
           entries = await leaderboard.getAllEntries();
