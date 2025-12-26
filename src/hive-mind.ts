@@ -281,7 +281,7 @@ export const requestEntries = async () => {
     while (chosenPeers.size < peerCount) {
       const randomIndex = Math.floor(Math.random() * peers.length);
       chosenPeers.add(peers[randomIndex]);
-      peers = peers.splice(randomIndex, 1);
+      peers.splice(randomIndex, 1);
     }
   }
   const knowledgeMap =
