@@ -50,7 +50,7 @@ reconnectPolicy.onFailure(({ handled }) => {
   }
 });
 
-setInterval(() => {
+function checkConnection() {
   if (roomLeaderboard) {
     if (Object.keys(roomLeaderboard.room.getPeers()).length === 0) {
       roomLeaderboard.reconnect();
@@ -58,7 +58,16 @@ setInterval(() => {
       requestEntries();
     }
   }
-}, 5000);
+}
+
+setInterval(checkConnection, 5000);
+if (typeof addEventListener === 'function') {
+  addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      checkConnection();
+    }
+  });
+}
 
 interface PrettyAction<T> {
   send: ActionSender<T>;

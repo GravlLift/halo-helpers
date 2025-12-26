@@ -2,25 +2,33 @@ import { UserInfo } from 'halo-infinite-api';
 import { Redis } from '@upstash/redis';
 import { wrapXuid } from '@gravllift/halo-helpers';
 import { DateTime } from 'luxon';
+let _redis: Redis | undefined;
 
-const url =
-  process.env['KV_REST_API_URL'] || process.env['UPSTASH_REDIS_REST_URL'];
-const token =
-  process.env['KV_REST_API_TOKEN'] || process.env['UPSTASH_REDIS_REST_TOKEN'];
-let redis: Redis | undefined;
-if (url && token) {
-  redis = new Redis({
-    url,
-    token,
-    keepAlive: false,
-  });
-} else {
-  redis = undefined;
+function getRedisInstance() {
+  if (_redis === undefined) {
+    const url =
+      process.env['KV_REST_API_URL'] || process.env['UPSTASH_REDIS_REST_URL'];
+    const token =
+      process.env['KV_REST_API_TOKEN'] ||
+      process.env['UPSTASH_REDIS_REST_TOKEN'];
+    console.log('Redis URL:', url ? 'Provided' : 'Not provided');
+    if (url && token) {
+      _redis = new Redis({
+        url,
+        token,
+        keepAlive: false,
+      });
+    } else {
+      _redis = undefined;
+    }
+  }
+  return _redis;
 }
 
 export function getByXuid(
   xuids: string[]
 ): Map<string, Promise<UserInfo | null>> {
+  const redis = getRedisInstance();
   if (!redis) {
     return new Map(xuids.map((xuid) => [xuid, Promise.resolve(null)]));
   }
@@ -41,6 +49,7 @@ export function getByXuid(
 export function getByGamertag(
   gamertags: string[]
 ): Map<string, Promise<UserInfo | null>> {
+  const redis = getRedisInstance();
   if (!redis) {
     return new Map(
       gamertags.map((gamertag) => [gamertag, Promise.resolve(null)])
@@ -58,6 +67,7 @@ export function getByGamertag(
 }
 
 export async function addUserInfo(user: UserInfo): Promise<void> {
+  const redis = getRedisInstance();
   if (!redis) {
     return;
   }
