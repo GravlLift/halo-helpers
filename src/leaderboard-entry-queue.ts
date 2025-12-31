@@ -164,10 +164,4 @@ export async function queueLeaderboardEntryForProcessing(
   }
 
   processEntriesWithUserInfo(leaderboard, entriesWithUserInfo);
-
-  const entriesToProcess =
-    entriesWithUserInfo.length + entriesWithoutUserInfo.length;
-  if (entriesToProcess > 0) {
-    console.debug(`Processing ${entriesToProcess} leaderboard entries.`);
-  }
 }

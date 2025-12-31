@@ -142,7 +142,7 @@ export function createXuidCache(
               isRequestError(err) &&
               err.response.status === 429
             ) {
-              let retryAfterSeconds = 15; // seconds fallback
+              let retryAfterSeconds = 30; // seconds fallback
               const raw =
                 err.response.headers.get('retry-after') ??
                 err.response.headers.get('Retry-After');
