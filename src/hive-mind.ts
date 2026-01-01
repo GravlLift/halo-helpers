@@ -158,11 +158,24 @@ export function ensureJoin(
             for (const [key, value] of Object.entries(peerKnowledgeMap)) {
               const currentVersion = knowledgeMap.get(key) ?? -1;
               if (value > currentVersion) {
-                // Peer has more recent data than us, request their entries
-                await requestEntriesAction.send(
-                  Object.fromEntries(knowledgeMap),
-                  peerId
-                );
+                try {
+                  // Peer has more recent data than us, request their entries
+                  await requestEntriesAction.send(
+                    Object.fromEntries(knowledgeMap),
+                    peerId
+                  );
+                } catch (e) {
+                  if (
+                    e instanceof Error &&
+                    e.message.includes('DataChannel is closed')
+                  ) {
+                    console.log(
+                      `Could not send request to ${peerId} because their DataChannel is closed.`
+                    );
+                  } else {
+                    throw e;
+                  }
+                }
                 return;
               }
             }
@@ -216,9 +229,19 @@ const sendQueue = new Map<
   { entries: LeaderboardEntry[]; promise: Promise<void> }[]
 >();
 async function _sendEntriesToPeer(entries: LeaderboardEntry[], peerId: string) {
-  await reconnectPolicy.execute(() =>
-    sendCsrEntriesAction.send(entries, peerId)
-  );
+  await reconnectPolicy.execute(async () => {
+    try {
+      await sendCsrEntriesAction.send(entries, peerId);
+    } catch (e) {
+      if (e instanceof Error && e.message.includes('DataChannel is closed')) {
+        console.log(
+          `Could not send request to ${peerId} because their DataChannel is closed.`
+        );
+      } else {
+        throw e;
+      }
+    }
+  });
 }
 
 async function sendEntriesToPeer(
@@ -304,11 +327,21 @@ export const requestEntries = async () => {
     if (!roomLeaderboard) {
       return;
     }
-    await reconnectPolicy.execute(async () =>
-      requestEntriesAction.send(
-        Object.fromEntries(knowledgeMap.entries()),
-        peerId
-      )
-    );
+    await reconnectPolicy.execute(async () => {
+      try {
+        await requestEntriesAction.send(
+          Object.fromEntries(knowledgeMap.entries()),
+          peerId
+        );
+      } catch (e) {
+        if (e instanceof Error && e.message.includes('DataChannel is closed')) {
+          console.log(
+            `Could not send request to ${peerId} because their DataChannel is closed.`
+          );
+        } else {
+          throw e;
+        }
+      }
+    });
   }
 };

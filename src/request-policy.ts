@@ -13,7 +13,8 @@ export const networkFailurePolicy = retry(
     (err) =>
       err.message === 'NetworkError when attempting to fetch resource.' ||
       err.message === 'Failed to fetch' ||
-      err.message === 'Load failed'
+      err.message === 'Load failed' ||
+      err.message === 'fetch failed'
   ).orWhen(
     (err) =>
       isRequestError(err) &&
