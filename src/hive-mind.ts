@@ -14,7 +14,8 @@ import {
   Room,
   joinRoom,
   selfId,
-} from 'trystero';
+  defaultRelayUrls,
+} from 'trystero/nostr';
 
 export type HiveMindLeaderboardProvider = Pick<
   ILeaderboardProvider,
@@ -38,11 +39,11 @@ let requestEntriesAction: PrettyAction<Record<string, number> | null>;
 const reconnectPolicy = retry(
   handleWhen(
     (e) =>
-      e.name === 'InvalidStateError' || e.message.includes('InvalidStateError')
+      e.name === 'InvalidStateError' || e.message.includes('InvalidStateError'),
   ),
   {
     maxAttempts: 2,
-  }
+  },
 );
 reconnectPolicy.onFailure(({ handled }) => {
   if (handled) {
@@ -77,7 +78,7 @@ interface PrettyAction<T> {
 
 function makePrettyAction<TData extends DataPayload>(
   room: Room,
-  namespace: string
+  namespace: string,
 ): PrettyAction<TData> {
   const action = room.makeAction<TData>(namespace);
   return {
@@ -96,7 +97,7 @@ const peerJoined$ = new Subject<string>();
 
 export function ensureJoin(
   leaderboard: HiveMindLeaderboardProvider,
-  rtcPolyfill: unknown
+  rtcPolyfill: unknown,
 ) {
   try {
     roomLeaderboard = {
@@ -104,8 +105,16 @@ export function ensureJoin(
         {
           appId: 'halo-query',
           rtcPolyfill,
+          relayUrls: defaultRelayUrls.filter(
+            (url) =>
+              ![
+                'relay.oldenburg.cool',
+                'relay.nostromo.social',
+                'relay.nostraddress.com',
+              ].some((badUrl) => url.includes(badUrl)),
+          ),
         } as BaseRoomConfig & RelayConfig,
-        'leaderboard-3'
+        'leaderboard-3',
       ),
       leaderboardProvider: leaderboard,
 
@@ -121,11 +130,11 @@ export function ensureJoin(
     };
     sendCsrEntriesAction = makePrettyAction<LeaderboardEntry[]>(
       roomLeaderboard.room,
-      'sendCsrs'
+      'sendCsrs',
     );
     requestEntriesAction = makePrettyAction<Record<string, number> | null>(
       roomLeaderboard.room,
-      'request'
+      'request',
     );
 
     roomLeaderboard.room.onPeerJoin(async (peerId) => {
@@ -162,7 +171,7 @@ export function ensureJoin(
                   // Peer has more recent data than us, request their entries
                   await requestEntriesAction.send(
                     Object.fromEntries(knowledgeMap),
-                    peerId
+                    peerId,
                   );
                 } catch (e) {
                   if (
@@ -170,7 +179,7 @@ export function ensureJoin(
                     e.message.includes('DataChannel is closed')
                   ) {
                     console.log(
-                      `Could not send request to ${peerId} because their DataChannel is closed.`
+                      `Could not send request to ${peerId} because their DataChannel is closed.`,
                     );
                   } else {
                     throw e;
@@ -207,7 +216,7 @@ export function ensureJoin(
           e.errors.some(
             (err) =>
               err.message ===
-              "Failed to construct 'RTCPeerConnection': Cannot create so many PeerConnections"
+              "Failed to construct 'RTCPeerConnection': Cannot create so many PeerConnections",
           )))
     ) {
       return;
@@ -235,7 +244,7 @@ async function _sendEntriesToPeer(entries: LeaderboardEntry[], peerId: string) {
     } catch (e) {
       if (e instanceof Error && e.message.includes('DataChannel is closed')) {
         console.log(
-          `Could not send request to ${peerId} because their DataChannel is closed.`
+          `Could not send request to ${peerId} because their DataChannel is closed.`,
         );
       } else {
         throw e;
@@ -246,7 +255,7 @@ async function _sendEntriesToPeer(entries: LeaderboardEntry[], peerId: string) {
 
 async function sendEntriesToPeer(
   entries: LeaderboardEntry[],
-  peerId: string
+  peerId: string,
 ): Promise<void> {
   const peerRequestsInProcess = sendQueue.get(peerId) ?? [];
 
@@ -265,7 +274,7 @@ async function sendEntriesToPeer(
       sendQueue.delete(peerId);
     } else {
       const idx = peerRequestsInProcess.findIndex(
-        (qe) => qe.promise === promise
+        (qe) => qe.promise === promise,
       );
       peerRequestsInProcess.splice(idx, 1);
     }
@@ -281,7 +290,7 @@ sendEntriesToAllSubject$
   .pipe(
     bufferTime(2000),
     map((e) => e.flat()),
-    filter((e) => e.length > 0)
+    filter((e) => e.length > 0),
   )
   .subscribe((entries) => {
     if (!roomLeaderboard) {
@@ -331,12 +340,12 @@ export const requestEntries = async () => {
       try {
         await requestEntriesAction.send(
           Object.fromEntries(knowledgeMap.entries()),
-          peerId
+          peerId,
         );
       } catch (e) {
         if (e instanceof Error && e.message.includes('DataChannel is closed')) {
           console.log(
-            `Could not send request to ${peerId} because their DataChannel is closed.`
+            `Could not send request to ${peerId} because their DataChannel is closed.`,
           );
         } else {
           throw e;
