@@ -97,7 +97,7 @@ const peerJoined$ = new Subject<string>();
 
 export function ensureJoin(
   leaderboard: HiveMindLeaderboardProvider,
-  rtcPolyfill: unknown,
+  rtcPolyfill?: unknown,
 ) {
   try {
     roomLeaderboard = {
