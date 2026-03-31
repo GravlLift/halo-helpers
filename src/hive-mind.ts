@@ -61,7 +61,6 @@ function checkConnection() {
   }
 }
 
-setInterval(checkConnection, 5000);
 if (typeof addEventListener === 'function') {
   addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
