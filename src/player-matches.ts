@@ -28,7 +28,7 @@ export async function* getPlayerMatches(
     };
   },
   haloCaches: HaloCaches,
-  logger$?: Observer<string>
+  logger$?: Observer<string>,
 ) {
   if (gamertags.length === 0) return;
 
@@ -50,13 +50,13 @@ export async function* getPlayerMatches(
   // to reach the skip count.
   // Tracks all matches seen by this function, regardless of if they fit the filters
   let allMatchesIterator =
-    options.filter || options.fastFilter ? 0 : options?.skip ?? 0;
+    options.filter || options.fastFilter ? 0 : (options?.skip ?? 0);
   // Tracks the number of matches yielded by this function (actual results)
   let matchesYielded = 0;
   // Tracks the number of matches that fit the filters but were skipped. If
   // we have no filters, we can skip right to the correct page
   let matchesSkipped =
-    options.filter || options.fastFilter ? 0 : options?.skip ?? 0;
+    options.filter || options.fastFilter ? 0 : (options?.skip ?? 0);
   // Matches that may or may not fit the filter criteria pending full loading
   const playerMatchPromises: Promise<PlayerMatchHistoryStatsSkill>[] = [];
 
@@ -69,7 +69,7 @@ export async function* getPlayerMatches(
         leaderboard: HiveMindLeaderboardProvider | undefined;
         match: PlayerMatchHistory;
       },
-      signal
+      signal,
     ) =>
       fetchFullyLoadedMatch(
         leaderboard,
@@ -77,7 +77,7 @@ export async function* getPlayerMatches(
         users,
         signal,
         haloCaches,
-        options.loadUserData
+        options.loadUserData,
       ),
     keyTransformer: ({ match }) => match.MatchId,
   });
@@ -85,8 +85,8 @@ export async function* getPlayerMatches(
   logger$?.next(`Fetching user data for ${gamertags}...`);
   const users = await Promise.all(
     Array.from(haloCaches.usersCache.get(gamertags, signal).entries()).map(
-      ([, v]) => v
-    )
+      ([, v]) => v,
+    ),
   );
 
   let pageRequestCount = Math.max(Math.ceil(options.limit / pageSize), 1);
@@ -100,18 +100,18 @@ export async function* getPlayerMatches(
       }
       logger$?.next(
         `Fetched matches as far back as ${DateTime.fromMillis(
-          earliestMatchMillis
+          earliestMatchMillis,
         ).toISODate()}. Evaluating filters for fetched match ${
           allMatchesIterator -
           pageSize +
           (initialPromiseCount - playerMatchPromises.length)
-        } of ${allMatchesIterator - pageSize + initialPromiseCount}...`
+        } of ${allMatchesIterator - pageSize + initialPromiseCount}...`,
       );
       const matchPromise = playerMatchPromises[0];
       const match = await matchPromise;
       if (
         users.every((u) =>
-          match.Players.some((p) => compareXuids(p.xuid, u.xuid))
+          match.Players.some((p) => compareXuids(p.xuid, u.xuid)),
         )
       ) {
         if (!options.filter || (await options.filter(match))) {
@@ -136,7 +136,7 @@ export async function* getPlayerMatches(
 
     const pageRequestCountCapped = Math.min(
       pageRequestCount,
-      maxSimultaneousRequests
+      maxSimultaneousRequests,
     );
 
     if (signal?.aborted) {
@@ -146,7 +146,7 @@ export async function* getPlayerMatches(
     logger$?.next(
       `Fetching ${users[0].gamertag} match chunks ${
         allMatchesIterator / pageSize + 1
-      } - ${allMatchesIterator / pageSize + 1 + pageRequestCountCapped}...`
+      } - ${allMatchesIterator / pageSize + 1 + pageRequestCountCapped}...`,
     );
     const matches = (
       await Promise.all(
@@ -155,14 +155,14 @@ export async function* getPlayerMatches(
           .map((_, i) => allMatchesIterator + i * pageSize)
           .filter(
             (countStart) =>
-              !options.countCutoff || countStart < options.countCutoff
+              !options.countCutoff || countStart < options.countCutoff,
           )
           .map((countStart) =>
             haloCaches.matchPageCache.get(
               { xuid: users[0].xuid, pageSize, start: countStart },
-              signal
-            )
-          )
+              signal,
+            ),
+          ),
       )
     ).flat();
 
@@ -176,13 +176,13 @@ export async function* getPlayerMatches(
     }
 
     earliestMatchMillis = Math.min(
-      ...matches.map((m) => DateTime.fromISO(m.MatchInfo.EndTime).toMillis())
+      ...matches.map((m) => DateTime.fromISO(m.MatchInfo.EndTime).toMillis()),
     );
 
     logger$?.next(
       `Fetched matches as far back as ${DateTime.fromMillis(
-        earliestMatchMillis
-      ).toISODate()}.`
+        earliestMatchMillis,
+      ).toISODate()}.`,
     );
 
     if (
@@ -194,9 +194,17 @@ export async function* getPlayerMatches(
       // Fast filters can be applied before loading other match details, allowing
       // us to skip loading of those matches entirely
       for (const match of matches.filter(options.fastFilter ?? (() => true))) {
-        playerMatchPromises.push(
-          fullyLoadedMatchCache.get({ leaderboard, match }, signal)
-        );
+        const matchStart = DateTime.fromISO(match.MatchInfo.StartTime);
+        if (
+          (options.dateRange?.start == null ||
+            matchStart.toMillis() >= options.dateRange.start.toMillis()) &&
+          (options.dateRange?.end == null ||
+            matchStart.toMillis() <= options.dateRange.end.toMillis())
+        ) {
+          playerMatchPromises.push(
+            fullyLoadedMatchCache.get({ leaderboard, match }, signal),
+          );
+        }
       }
 
       if (
@@ -224,7 +232,7 @@ export async function* getPlayerMatches(
     }
 
     const [resolvedPromise] = await Promise.race(
-      playerMatchPromises.map((p) => p.then(() => [p]))
+      playerMatchPromises.map((p) => p.then(() => [p])),
     );
     const match = await resolvedPromise;
     if (!options.filter || options.filter(match)) {
