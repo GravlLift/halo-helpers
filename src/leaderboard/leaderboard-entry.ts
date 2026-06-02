@@ -9,8 +9,6 @@ export enum LeaderboardEntryKeys {
   MatchDate = 'matchDate',
   Csr = 'csr',
   Esr = 'esr',
-  DiscoverySource = 'discoverySource',
-  DiscoveryVersion = 'discoveryVersion',
 }
 
 export type LeaderboardEntry = {
@@ -22,15 +20,13 @@ export type LeaderboardEntry = {
   [LeaderboardEntryKeys.MatchDate]: number;
   [LeaderboardEntryKeys.Csr]: number;
   [LeaderboardEntryKeys.Esr]: number;
-  [LeaderboardEntryKeys.DiscoverySource]: string;
-  [LeaderboardEntryKeys.DiscoveryVersion]: number;
 };
 
 export function entryIsValidNoUserInfo(
   entry: Omit<
     LeaderboardEntry,
     LeaderboardEntryKeys.Xuid | LeaderboardEntryKeys.Gamertag
-  > | null
+  > | null,
 ): entry is Omit<
   LeaderboardEntry,
   LeaderboardEntryKeys.Xuid | LeaderboardEntryKeys.Gamertag

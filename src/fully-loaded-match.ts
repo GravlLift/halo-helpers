@@ -1,7 +1,8 @@
 import {
   compareXuids,
   entryIsValid,
-  HiveMindLeaderboardProvider,
+  ILeaderboardProvider,
+  KnowledgeMapLeaderboardProvider,
   wrapXuid,
 } from '@gravllift/halo-helpers';
 import {
@@ -13,14 +14,14 @@ import {
 } from 'halo-infinite-api';
 import { BehaviorSubject, Observer, Subscribable } from 'rxjs';
 import type { HaloCaches } from './halo-caches/halo-caches';
-import { queueLeaderboardEntryForProcessing } from './leaderboard-entry-queue';
+import { queueLeaderboardEntryForProcessing } from './leaderboard/leaderboard-entry-queue';
 import {
   PlayerMatchHistoryStatsSkill,
   ProgressiveMatch,
 } from './player-match-history-stats-skill';
 
 export async function fetchFullyLoadedMatch(
-  leaderboard: HiveMindLeaderboardProvider | undefined,
+  leaderboard: KnowledgeMapLeaderboardProvider | undefined,
   match: { MatchId: string; MatchInfo: MatchInfo },
   users: { xuid: string }[],
   signal: AbortSignal,
@@ -172,7 +173,7 @@ export function fetchMatchProgressive(
     signal: AbortSignal;
     haloCaches: HaloCaches;
     loadUserData: boolean;
-    leaderboard: HiveMindLeaderboardProvider | undefined;
+    leaderboard: KnowledgeMapLeaderboardProvider | undefined;
     _logger$?: Observer<string>;
   },
 ): Subscribable<ProgressiveMatch> {

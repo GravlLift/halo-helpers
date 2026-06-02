@@ -3,6 +3,8 @@ import {
   handleType,
   handleWhen,
   retry,
+  timeout,
+  TimeoutStrategy,
   wrap,
 } from 'cockatiel';
 import { isRequestError } from './error-helpers';
@@ -14,13 +16,13 @@ export const networkFailurePolicy = retry(
       err.message === 'NetworkError when attempting to fetch resource.' ||
       err.message === 'Failed to fetch' ||
       err.message === 'Load failed' ||
-      err.message === 'fetch failed'
+      err.message === 'fetch failed',
   ).orWhen(
     (err) =>
       isRequestError(err) &&
       (err.response.status >= 500 ||
         err.response.status === 401 ||
-        err.response.status === 0)
+        err.response.status === 0),
   ),
   {
     maxAttempts: 3,
@@ -37,7 +39,7 @@ export const networkFailurePolicy = retry(
 
       return 0;
     }),
-  }
+  },
 );
 
 export const requestPolicy = wrap(
@@ -62,7 +64,7 @@ export const requestPolicy = wrap(
 
         return context.attempt * 1000;
       }),
-    }
+    },
   ),
-  networkFailurePolicy
+  networkFailurePolicy,
 );

@@ -2,7 +2,7 @@ import { HaloCaches } from './halo-caches/halo-caches';
 import '@gravllift/utilities';
 import {
   compareXuids,
-  HiveMindLeaderboardProvider,
+  KnowledgeMapLeaderboardProvider,
   wrapXuid,
 } from '@gravllift/halo-helpers';
 import { AssetVersionLink } from 'halo-infinite-api';
@@ -11,16 +11,15 @@ import { getPlayerMatches } from './player-matches';
 import { skillRankCombined } from './skill-rank-helpers';
 
 export async function getPlayerEsrA(
-  leaderboard: HiveMindLeaderboardProvider | undefined,
+  leaderboard: KnowledgeMapLeaderboardProvider | undefined,
   playlistVersionLink: Omit<AssetVersionLink, 'AssetKind'>,
   xuid: string,
   asOf: DateTime,
   signal: AbortSignal,
-  haloCaches: InstanceType<typeof HaloCaches>
+  haloCaches: InstanceType<typeof HaloCaches>,
 ) {
-  const playlist = await haloCaches.playlistVersionCache.get(
-    playlistVersionLink
-  );
+  const playlist =
+    await haloCaches.playlistVersionCache.get(playlistVersionLink);
   if ('RotationEntries' in playlist) {
     const gameVariantAssetIds = (
       await Promise.all(
@@ -31,7 +30,7 @@ export async function getPlayerEsrA(
           } else {
             return null;
           }
-        })
+        }),
       )
     )
       .filter((id): id is string => id !== null)
@@ -56,7 +55,7 @@ export async function getPlayerEsrA(
                 return false;
               }
               const player = m.MatchStats.Players.find(
-                (p) => p.xuid && compareXuids(p.xuid, xuid)
+                (p) => p.xuid && compareXuids(p.xuid, xuid),
               );
               if (!player?.Skill) {
                 return false;
@@ -65,21 +64,21 @@ export async function getPlayerEsrA(
             },
             loadUserData: false,
           },
-          haloCaches
+          haloCaches,
         ).next();
         if (iterationResult.done) {
           return null;
         } else {
           return iterationResult.value;
         }
-      })
+      }),
     );
 
     const mostRecentEsrByVariant = mostRecentGameByVariant
       .filter((m): m is NonNullable<typeof m> => !!m)
       .map((m) => {
         const player = m.MatchStats.Players.find(
-          (p) => p.xuid && compareXuids(p.xuid, xuid)
+          (p) => p.xuid && compareXuids(p.xuid, xuid),
         );
 
         if (!player?.Skill) {

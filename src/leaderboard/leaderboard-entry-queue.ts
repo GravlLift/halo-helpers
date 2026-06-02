@@ -1,26 +1,30 @@
-import { HiveMindLeaderboardProvider, wrapXuid } from '@gravllift/halo-helpers';
+import {
+  KnowledgeMapLeaderboardEntry,
+  KnowledgeMapLeaderboardProvider,
+  wrapXuid,
+} from '@gravllift/halo-helpers';
 import { MatchSkill } from 'halo-infinite-api';
 import { DateTime } from 'luxon';
-import { HaloCaches } from './halo-caches/halo-caches';
-import { entryIsValidNoUserInfo, LeaderboardEntry } from './leaderboard-entry';
-import { skillRankCombined } from './skill-rank-helpers';
+import { HaloCaches } from '../halo-caches/halo-caches';
+import { entryIsValidNoUserInfo } from './leaderboard-entry';
+import { skillRankCombined } from '../skill-rank-helpers';
 
 interface LeaderboardCacheEntry {
-  leaderboard: HiveMindLeaderboardProvider;
+  leaderboard: KnowledgeMapLeaderboardProvider;
 }
 
 interface EntryWithoutUserInfo extends LeaderboardCacheEntry {
   haloCaches: HaloCaches;
-  entry: Omit<LeaderboardEntry, 'gamertag'>;
+  entry: Omit<KnowledgeMapLeaderboardEntry, 'gamertag'>;
 }
 
 interface EntryWithUserInfo extends LeaderboardCacheEntry {
-  entry: LeaderboardEntry;
+  entry: KnowledgeMapLeaderboardEntry;
 }
 
 function processEntriesWithUserInfo(
   leaderboard: LeaderboardCacheEntry['leaderboard'],
-  entries: EntryWithUserInfo[]
+  entries: EntryWithUserInfo[],
 ) {
   leaderboard.addLeaderboardEntries(entries.map((e) => e.entry));
 }
@@ -35,7 +39,7 @@ async function processEntriesWithoutUserInfo(entries: EntryWithoutUserInfo[]) {
       }): Promise<EntryWithUserInfo | null> => {
         try {
           const userInfo = await haloCaches.usersCache.get(
-            wrapXuid(entry.xuid)
+            wrapXuid(entry.xuid),
           );
           return {
             leaderboard,
@@ -49,8 +53,8 @@ async function processEntriesWithoutUserInfo(entries: EntryWithoutUserInfo[]) {
           console.warn(`Failed to get user info for ${entry.xuid}`);
           return null;
         }
-      }
-    )
+      },
+    ),
   );
 
   const entriesWithUserInfo = new Map<
@@ -84,14 +88,14 @@ export async function queueLeaderboardEntryForProcessing(
       gameVariantAssetId: string;
       matchId: string;
     };
-  }[]
+  }[],
 ) {
   const entriesWithoutUserInfo: EntryWithoutUserInfo[] = [];
   const entriesWithUserInfo: EntryWithUserInfo[] = [];
 
   const leaderboardEntriesPromise = leaderboard
     .getEntries(entries.map((e) => wrapXuid(e.xuid)))
-    .catch(() => [] as LeaderboardEntry[]);
+    .catch(() => [] as KnowledgeMapLeaderboardEntry[]);
 
   const [discovererId, currentKnowledge] = await Promise.all([
     leaderboard.getDiscovererId(),
@@ -140,7 +144,7 @@ export async function queueLeaderboardEntryForProcessing(
 
     const leaderboardEntries = await leaderboardEntriesPromise;
     const leaderboardEntry = leaderboardEntries.find(
-      (le) => le.xuid === wrapXuid(entry.xuid)
+      (le) => le.xuid === wrapXuid(entry.xuid),
     );
     if (leaderboardEntry) {
       // Leaderboard has info for this user

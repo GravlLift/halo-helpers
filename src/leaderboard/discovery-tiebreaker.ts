@@ -1,38 +1,38 @@
-import { LeaderboardEntry, LeaderboardEntryKeys } from './leaderboard-entry';
+import { LeaderboardEntryKeys } from './leaderboard-entry';
 
 export function determineDiscoveryInfo(
-  entryA: LeaderboardEntry,
-  entryB: LeaderboardEntry,
-  fallback: { discovererId: string; lastVersion: number }
+  entryA: {
+    discoverySource: string;
+    discoveryVersion: number;
+  },
+  entryB: {
+    discoverySource: string;
+    discoveryVersion: number;
+  },
+  fallback: { discovererId: string; lastVersion: number },
 ) {
   let discoveryInfo: {
-    [LeaderboardEntryKeys.DiscoverySource]: string;
-    [LeaderboardEntryKeys.DiscoveryVersion]: number;
+    discoverySource: string;
+    discoveryVersion: number;
   };
 
-  if (
-    !entryA[LeaderboardEntryKeys.DiscoverySource] &&
-    !entryB[LeaderboardEntryKeys.DiscoverySource]
-  ) {
+  if (!entryA.discoverySource && !entryB.discoverySource) {
     discoveryInfo = {
       discoverySource: fallback.discovererId,
       discoveryVersion: fallback.lastVersion + 1,
     };
-  } else if (!entryB[LeaderboardEntryKeys.DiscoverySource]) {
+  } else if (!entryB.discoverySource) {
     discoveryInfo = {
       discoverySource: entryA.discoverySource,
       discoveryVersion: entryA.discoveryVersion,
     };
-  } else if (!entryA[LeaderboardEntryKeys.DiscoverySource]) {
+  } else if (!entryA.discoverySource) {
     discoveryInfo = {
       discoverySource: entryB.discoverySource,
       discoveryVersion: entryB.discoveryVersion,
     };
   } else {
-    if (
-      entryA[LeaderboardEntryKeys.DiscoverySource] >
-      entryB[LeaderboardEntryKeys.DiscoverySource]
-    ) {
+    if (entryA.discoverySource > entryB.discoverySource) {
       discoveryInfo = {
         discoverySource: entryA.discoverySource,
         discoveryVersion: entryA.discoveryVersion,

@@ -1,7 +1,3 @@
-import type {
-  ILeaderboardProvider,
-  LeaderboardEntry,
-} from '@gravllift/halo-helpers';
 import { handleWhen, retry } from 'cockatiel';
 import { BehaviorSubject, Subject, bufferTime, filter, map } from 'rxjs';
 import {
@@ -12,29 +8,21 @@ import {
   DataPayload,
   RelayConfig,
   Room,
+  defaultRelayUrls,
   joinRoom,
   selfId,
-  defaultRelayUrls,
 } from 'trystero/nostr';
-
-export type HiveMindLeaderboardProvider = Pick<
-  ILeaderboardProvider,
-  | 'addLeaderboardEntries'
-  | 'getEntries'
-  | 'getAllEntries'
-  | 'getCurrentKnowledge'
-  | 'getDeltaEntries'
-  | 'getDiscovererId'
->;
+import { KnowledgeMapLeaderboardProvider } from './knowledge-map-leaderboard';
+import { KnowledgeMapLeaderboardEntry } from './entry';
 
 type RoomLeaderboard = {
   room: Room;
-  leaderboardProvider: HiveMindLeaderboardProvider;
+  leaderboardProvider: KnowledgeMapLeaderboardProvider;
   reconnect: () => void;
 };
 let roomLeaderboard: RoomLeaderboard | undefined;
 
-let sendCsrEntriesAction: PrettyAction<LeaderboardEntry[]>;
+let sendCsrEntriesAction: PrettyAction<KnowledgeMapLeaderboardEntry[]>;
 let requestEntriesAction: PrettyAction<Record<string, number> | null>;
 const reconnectPolicy = retry(
   handleWhen(
@@ -95,7 +83,7 @@ const requestEntriesCalls = new Set<string>();
 const peerJoined$ = new Subject<string>();
 
 export function ensureJoin(
-  leaderboard: HiveMindLeaderboardProvider,
+  leaderboard: KnowledgeMapLeaderboardProvider,
   rtcPolyfill?: unknown,
 ) {
   try {
@@ -127,7 +115,7 @@ export function ensureJoin(
         }
       },
     };
-    sendCsrEntriesAction = makePrettyAction<LeaderboardEntry[]>(
+    sendCsrEntriesAction = makePrettyAction<KnowledgeMapLeaderboardEntry[]>(
       roomLeaderboard.room,
       'sendCsrs',
     );
@@ -160,7 +148,7 @@ export function ensureJoin(
       requestEntriesCalls.add(peerId);
 
       try {
-        let entries: LeaderboardEntry[] = [];
+        let entries: KnowledgeMapLeaderboardEntry[] = [];
         if (peerKnowledgeMap) {
           leaderboard.getCurrentKnowledge().then(async (knowledgeMap) => {
             for (const [key, value] of Object.entries(peerKnowledgeMap)) {
@@ -234,9 +222,12 @@ export function leave() {
 // Don't send duplicate data to the same peer
 const sendQueue = new Map<
   string,
-  { entries: LeaderboardEntry[]; promise: Promise<void> }[]
+  { entries: KnowledgeMapLeaderboardEntry[]; promise: Promise<void> }[]
 >();
-async function _sendEntriesToPeer(entries: LeaderboardEntry[], peerId: string) {
+async function _sendEntriesToPeer(
+  entries: KnowledgeMapLeaderboardEntry[],
+  peerId: string,
+) {
   await reconnectPolicy.execute(async () => {
     try {
       await sendCsrEntriesAction.send(entries, peerId);
@@ -253,7 +244,7 @@ async function _sendEntriesToPeer(entries: LeaderboardEntry[], peerId: string) {
 }
 
 async function sendEntriesToPeer(
-  entries: LeaderboardEntry[],
+  entries: KnowledgeMapLeaderboardEntry[],
   peerId: string,
 ): Promise<void> {
   const peerRequestsInProcess = sendQueue.get(peerId) ?? [];
@@ -284,7 +275,7 @@ async function sendEntriesToPeer(
   return promise;
 }
 
-const sendEntriesToAllSubject$ = new Subject<LeaderboardEntry[]>();
+const sendEntriesToAllSubject$ = new Subject<KnowledgeMapLeaderboardEntry[]>();
 sendEntriesToAllSubject$
   .pipe(
     bufferTime(2000),
@@ -301,7 +292,9 @@ sendEntriesToAllSubject$
     }
   });
 
-export const sendLeaderboardEntriesToAllPeers = (data: LeaderboardEntry[]) => {
+export const sendLeaderboardEntriesToAllPeers = (
+  data: KnowledgeMapLeaderboardEntry[],
+) => {
   sendEntriesToAllSubject$.next(data);
 };
 

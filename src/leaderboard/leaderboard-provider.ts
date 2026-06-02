@@ -1,21 +1,21 @@
 import type { LeaderboardEntry } from './leaderboard-entry';
 
-export interface ILeaderboardProvider {
+export interface ILeaderboardProvider<
+  TEntry extends LeaderboardEntry = LeaderboardEntry,
+> {
   initialized: () => Promise<boolean>;
-  addLeaderboardEntries(
-    entries: LeaderboardEntry[]
-  ): Promise<LeaderboardEntry[]>;
-  getAllEntries(): Promise<LeaderboardEntry[]>;
-  getRandomEntry(): Promise<LeaderboardEntry | undefined>;
+  addLeaderboardEntries(entries: TEntry[]): Promise<TEntry[]>;
+  getAllEntries(): Promise<TEntry[]>;
+  getRandomEntry(): Promise<TEntry | undefined>;
   getGamertagIndex(
     xuid: string,
     playlistAssetId: string,
     skillProp: 'csr' | 'esr',
-    signal?: AbortSignal
+    signal?: AbortSignal,
   ): Promise<number>;
   getSkillBuckets(
     playlistAssetId: string,
-    skillProp: 'csr' | 'esr'
+    skillProp: 'csr' | 'esr',
   ): Promise<Map<number, number>>;
   getRankedEntries(
     playlistAssetId: string,
@@ -23,8 +23,8 @@ export interface ILeaderboardProvider {
       offset: number;
       limit: number;
     },
-    skillProp: 'csr' | 'esr'
-  ): Promise<(LeaderboardEntry & { rank: number })[]>;
+    skillProp: 'csr' | 'esr',
+  ): Promise<(TEntry & { rank: number })[]>;
   getPlaylistEntriesCount(playlistAssetId: string): Promise<number>;
   getPlaylistAssetIds(): Promise<string[]>;
   getEntries(xuid: string[]): Promise<
@@ -33,9 +33,4 @@ export interface ILeaderboardProvider {
       gamertag: string;
     }[]
   >;
-  getCurrentKnowledge: () => Promise<Map<string, number>>;
-  getDeltaEntries(
-    knowledges: Record<string, number>
-  ): Promise<LeaderboardEntry[]>;
-  getDiscovererId: () => Promise<string>;
 }
