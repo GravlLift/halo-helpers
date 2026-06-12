@@ -21,13 +21,15 @@ import {
 } from './player-match-history-stats-skill';
 
 export async function fetchFullyLoadedMatch(
-  leaderboard: KnowledgeMapLeaderboardProvider | undefined,
+  leaderboard:
+    | Parameters<typeof queueLeaderboardEntryForProcessing>[1]
+    | undefined,
   match: { MatchId: string; MatchInfo: MatchInfo },
   users: { xuid: string }[],
   signal: AbortSignal,
   haloCaches: HaloCaches,
   loadUserData: boolean,
-  _logger$?: Observer<string>,
+  _logger$?: Observer<string>
 ): Promise<PlayerMatchHistoryStatsSkill> {
   const matchStatsPromise = haloCaches.matchStatsCache.get(match.MatchId); // This is causing abort errors for some reason
 
@@ -43,7 +45,7 @@ export async function fetchFullyLoadedMatch(
     matchStatsPromise,
     matchStatsPromise.then((matchStats) => {
       const playersToFetch = matchStats.Players.filter((p) =>
-        /^xuid\(\d+\)$/.test(p.PlayerId),
+        /^xuid\(\d+\)$/.test(p.PlayerId)
       ).map((p) => ({
         matchId: match.MatchId,
         playerId: p.PlayerId,
@@ -55,8 +57,8 @@ export async function fetchFullyLoadedMatch(
               Id: playerId,
               ResultCode: 1,
               Result: null,
-            })),
-        ),
+            }))
+        )
       );
     }),
     haloCaches.mapCache.get(match.MatchInfo.MapVariant, signal),
@@ -73,10 +75,10 @@ export async function fetchFullyLoadedMatch(
       ? matchStatsPromise.then((s) =>
           haloCaches.usersCache.get(
             s.Players.filter((p) => /^xuid\(\d+\)$/.test(p.PlayerId)).map((p) =>
-              wrapXuid(p.PlayerId),
+              wrapXuid(p.PlayerId)
             ),
-            signal,
-          ),
+            signal
+          )
         )
       : new Map<
           string,
@@ -96,7 +98,7 @@ export async function fetchFullyLoadedMatch(
       skills
         .filter(
           (s): s is ResultContainer<MatchSkill> =>
-            s.Result != null && s.ResultCode === 0,
+            s.Result != null && s.ResultCode === 0
         )
         .map((s) => ({
           matchInfo: {
@@ -107,7 +109,7 @@ export async function fetchFullyLoadedMatch(
           },
           matchSkill: s.Result,
           xuid: s.Id,
-        })),
+        }))
     );
   }
 
@@ -118,14 +120,14 @@ export async function fetchFullyLoadedMatch(
         gamertag: '',
       };
       const playerSkill = skills?.find(
-        (s) => s.ResultCode === 0 && s.Result != null && s.Id === p.PlayerId,
+        (s) => s.ResultCode === 0 && s.Result != null && s.Id === p.PlayerId
       )?.Result;
       if (playerSkill) {
         return { ...p, Skill: playerSkill, ...userInfo };
       } else {
         return { ...p, ...userInfo };
       }
-    }),
+    })
   );
 
   return {
@@ -145,7 +147,7 @@ export async function fetchFullyLoadedMatch(
     Players: await Promise.all(
       (users.length
         ? stats.Players.filter((p) =>
-            users.some((u) => compareXuids(u.xuid, p.PlayerId)),
+            users.some((u) => compareXuids(u.xuid, p.PlayerId))
           )
         : stats.Players
       ).map(
@@ -153,8 +155,8 @@ export async function fetchFullyLoadedMatch(
           (await userInfoMap.get(player.PlayerId)) ?? {
             xuid: player.PlayerId,
             gamertag: '',
-          },
-      ),
+          }
+      )
     ),
     MatchStats: {
       ...stats,
@@ -175,7 +177,7 @@ export function fetchMatchProgressive(
     loadUserData: boolean;
     leaderboard: KnowledgeMapLeaderboardProvider | undefined;
     _logger$?: Observer<string>;
-  },
+  }
 ): Subscribable<ProgressiveMatch> {
   const subject = new BehaviorSubject<ProgressiveMatch>({
     MatchId: match.MatchId,
@@ -265,8 +267,8 @@ export function fetchMatchProgressive(
 
   const playerXuidsPromise = matchStatsPromise.then((matchStats) =>
     matchStats.Players.filter((p) => /^xuid\(\d+\)$/.test(p.PlayerId)).map(
-      (p) => wrapXuid(p.PlayerId),
-    ),
+      (p) => wrapXuid(p.PlayerId)
+    )
   );
 
   playerXuidsPromise.then((playersXuids) => {
@@ -277,8 +279,8 @@ export function fetchMatchProgressive(
           matchId: match.MatchId,
           playerId: xuid,
         })),
-        options.signal,
-      ),
+        options.signal
+      )
     ).map(([{ playerId }, promise]) =>
       promise
         .catch(() => ({
@@ -294,7 +296,7 @@ export function fetchMatchProgressive(
               Players: subject.value.Players.map((p) =>
                 compareXuids(p.PlayerId, playerSkill.Id)
                   ? { ...p, Skill: playerSkill.Result }
-                  : p,
+                  : p
               ),
               Teams: subject.value.Teams.map((t) => ({
                 ...t,
@@ -303,7 +305,7 @@ export function fetchMatchProgressive(
                     ? t.Players.map((p) =>
                         compareXuids(p.PlayerId, playerSkill.Id)
                           ? { ...p, Skill: playerSkill.Result }
-                          : p,
+                          : p
                       )
                     : undefined,
               })),
@@ -311,7 +313,7 @@ export function fetchMatchProgressive(
           }
 
           return playerSkill;
-        }),
+        })
     );
 
     Promise.all(playerSkillPromises).then((skills) => {
@@ -323,7 +325,7 @@ export function fetchMatchProgressive(
           skills
             .filter(
               (s): s is ResultContainer<MatchSkill> =>
-                s.Result != null && s.ResultCode === 0,
+                s.Result != null && s.ResultCode === 0
             )
             .map((s) => ({
               matchInfo: {
@@ -335,7 +337,7 @@ export function fetchMatchProgressive(
               },
               matchSkill: s.Result,
               xuid: s.Id,
-            })),
+            }))
         );
       }
     });
@@ -351,7 +353,7 @@ export function fetchMatchProgressive(
           subject.next({
             ...subject.value,
             Players: subject.value.Players.map((p) =>
-              compareXuids(p.PlayerId, user.xuid) ? { ...p, ...user } : p,
+              compareXuids(p.PlayerId, user.xuid) ? { ...p, ...user } : p
             ),
           });
         });

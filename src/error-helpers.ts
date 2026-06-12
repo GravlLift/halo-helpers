@@ -1,6 +1,10 @@
 import { RequestError } from 'halo-infinite-api';
 
 export function isRequestError(err: Error): err is RequestError {
+  if (typeof err === 'string') {
+    return false;
+  }
+
   return (
     err instanceof RequestError ||
     ('response' in err &&

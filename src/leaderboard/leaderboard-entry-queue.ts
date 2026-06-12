@@ -10,7 +10,13 @@ import { entryIsValidNoUserInfo } from './leaderboard-entry';
 import { skillRankCombined } from '../skill-rank-helpers';
 
 interface LeaderboardCacheEntry {
-  leaderboard: KnowledgeMapLeaderboardProvider;
+  leaderboard: Pick<
+    KnowledgeMapLeaderboardProvider,
+    | 'getEntries'
+    | 'getDiscovererId'
+    | 'getCurrentKnowledge'
+    | 'addLeaderboardEntries'
+  >;
 }
 
 interface EntryWithoutUserInfo extends LeaderboardCacheEntry {
@@ -24,7 +30,7 @@ interface EntryWithUserInfo extends LeaderboardCacheEntry {
 
 function processEntriesWithUserInfo(
   leaderboard: LeaderboardCacheEntry['leaderboard'],
-  entries: EntryWithUserInfo[],
+  entries: EntryWithUserInfo[]
 ) {
   leaderboard.addLeaderboardEntries(entries.map((e) => e.entry));
 }
@@ -39,7 +45,7 @@ async function processEntriesWithoutUserInfo(entries: EntryWithoutUserInfo[]) {
       }): Promise<EntryWithUserInfo | null> => {
         try {
           const userInfo = await haloCaches.usersCache.get(
-            wrapXuid(entry.xuid),
+            wrapXuid(entry.xuid)
           );
           return {
             leaderboard,
@@ -53,8 +59,8 @@ async function processEntriesWithoutUserInfo(entries: EntryWithoutUserInfo[]) {
           console.warn(`Failed to get user info for ${entry.xuid}`);
           return null;
         }
-      },
-    ),
+      }
+    )
   );
 
   const entriesWithUserInfo = new Map<
@@ -88,7 +94,7 @@ export async function queueLeaderboardEntryForProcessing(
       gameVariantAssetId: string;
       matchId: string;
     };
-  }[],
+  }[]
 ) {
   const entriesWithoutUserInfo: EntryWithoutUserInfo[] = [];
   const entriesWithUserInfo: EntryWithUserInfo[] = [];
@@ -144,7 +150,7 @@ export async function queueLeaderboardEntryForProcessing(
 
     const leaderboardEntries = await leaderboardEntriesPromise;
     const leaderboardEntry = leaderboardEntries.find(
-      (le) => le.xuid === wrapXuid(entry.xuid),
+      (le) => le.xuid === wrapXuid(entry.xuid)
     );
     if (leaderboardEntry) {
       // Leaderboard has info for this user

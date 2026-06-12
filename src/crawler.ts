@@ -1,9 +1,9 @@
 import { DateTime } from 'luxon';
 import { Subject } from 'rxjs';
 import { HaloCaches } from './halo-caches/halo-caches';
-import type { KnowledgeMapLeaderboardProvider } from './leaderboard/hive-mind';
 import { getPlayerMatches } from './player-matches';
 import { wrapXuid } from './xuids';
+import { KnowledgeMapLeaderboardProvider } from './leaderboard';
 
 export async function crawlMatches(
   startingXuid: string,
@@ -19,7 +19,7 @@ export async function crawlMatches(
   },
   visitedMatches?: Set<string>,
   visitedXuids?: Set<string>,
-  loggerFn?: (msg: string) => void,
+  loggerFn?: (msg: string) => void
 ) {
   visitedXuids ??= new Set<string>();
   if (visitedXuids.has(startingXuid)) {
@@ -47,7 +47,7 @@ export async function crawlMatches(
       },
     },
     haloCaches,
-    logger$,
+    logger$
   );
 
   let subscription: { unsubscribe: () => void } | undefined;
@@ -89,7 +89,7 @@ export async function crawlMatches(
         },
         visitedMatches,
         visitedXuids,
-        loggerFn,
+        loggerFn
       );
     }
   } finally {
