@@ -4,14 +4,14 @@ import { DateTime } from 'luxon';
 import { Observer } from 'rxjs';
 import { fetchFullyLoadedMatch } from './fully-loaded-match';
 import { HaloCaches } from './halo-caches/halo-caches';
+import { KnowledgeMapLeaderboardProvider } from './leaderboard';
 import { PlayerMatchHistoryStatsSkill } from './player-match-history-stats-skill';
 import { compareXuids } from './xuids';
-import { ILeaderboardProvider } from './leaderboard/leaderboard-provider';
 
 const maxSimultaneousRequests = 8;
 
 export async function* getPlayerMatches(
-  leaderboard: ILeaderboardProvider | undefined,
+  leaderboard: KnowledgeMapLeaderboardProvider | undefined,
   gamertags: string[],
   options: {
     limit: number;
