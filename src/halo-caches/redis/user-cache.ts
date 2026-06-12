@@ -1,29 +1,7 @@
 import { UserInfo } from 'halo-infinite-api';
-import { Redis } from '@upstash/redis';
-import { wrapXuid } from '@gravllift/halo-helpers';
+import { wrapXuid, compareXuids } from '@gravllift/halo-helpers';
 import { DateTime } from 'luxon';
-let _redis: Redis | undefined;
-
-function getRedisInstance() {
-  if (_redis === undefined) {
-    const url =
-      process.env['KV_REST_API_URL'] || process.env['UPSTASH_REDIS_REST_URL'];
-    const token =
-      process.env['KV_REST_API_TOKEN'] ||
-      process.env['UPSTASH_REDIS_REST_TOKEN'];
-    console.log('Redis URL:', url ? 'Provided' : 'Not provided');
-    if (url && token) {
-      _redis = new Redis({
-        url,
-        token,
-        keepAlive: false,
-      });
-    } else {
-      _redis = undefined;
-    }
-  }
-  return _redis;
-}
+import { getRedisInstance } from './redis-instance';
 
 export function getByXuid(
   xuids: string[]
@@ -33,14 +11,15 @@ export function getByXuid(
     return new Map(xuids.map((xuid) => [xuid, Promise.resolve(null)]));
   }
 
-  const mGetPromise = redis.mget<UserInfo[]>(
+  const mGetPromise = redis.mget<(UserInfo | null | undefined)[]>(
     xuids.map((xuid) => wrapXuid(xuid))
   );
   return new Map(
     xuids.map((xuid) => [
       xuid,
       mGetPromise.then(
-        (users) => users.find((user) => user?.xuid === xuid) ?? null
+        (users) =>
+          users.find((user) => user && compareXuids(user.xuid, xuid)) ?? null
       ),
     ])
   );
