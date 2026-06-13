@@ -4,14 +4,12 @@ import { DateTime } from 'luxon';
 import { Observer } from 'rxjs';
 import { fetchFullyLoadedMatch } from './fully-loaded-match';
 import { HaloCaches } from './halo-caches/halo-caches';
-import { KnowledgeMapLeaderboardProvider } from './leaderboard';
 import { PlayerMatchHistoryStatsSkill } from './player-match-history-stats-skill';
 import { compareXuids } from './xuids';
 
 const maxSimultaneousRequests = 8;
 
 export async function* getPlayerMatches(
-  leaderboard: KnowledgeMapLeaderboardProvider | undefined,
   gamertags: string[],
   options: {
     limit: number;
@@ -70,7 +68,6 @@ export async function* getPlayerMatches(
       signal
     ) =>
       fetchFullyLoadedMatch(
-        leaderboard,
         match,
         users,
         signal,

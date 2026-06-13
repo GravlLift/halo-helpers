@@ -11,9 +11,7 @@ export async function crawlMatches(
   {
     signal,
     haloCaches,
-    leaderboard,
   }: {
-    leaderboard: KnowledgeMapLeaderboardProvider | undefined;
     haloCaches: HaloCaches;
     signal: AbortSignal;
   },
@@ -32,7 +30,6 @@ export async function crawlMatches(
   const xuidsToCrawl = new Set<string>();
   const logger$ = new Subject<string>();
   const iterator = getPlayerMatches(
-    leaderboard,
     [wrapXuid(startingXuid)],
     {
       limit: 1,
@@ -83,7 +80,6 @@ export async function crawlMatches(
         xuid,
         maxDepth,
         {
-          leaderboard,
           signal,
           haloCaches,
         },

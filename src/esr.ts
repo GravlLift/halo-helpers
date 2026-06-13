@@ -1,22 +1,17 @@
-import { HaloCaches } from './halo-caches/halo-caches';
+import { compareXuids, wrapXuid } from '@gravllift/halo-helpers';
 import '@gravllift/utilities';
-import {
-  compareXuids,
-  KnowledgeMapLeaderboardProvider,
-  wrapXuid,
-} from '@gravllift/halo-helpers';
 import { AssetVersionLink } from 'halo-infinite-api';
 import { DateTime } from 'luxon';
+import { HaloCaches } from './halo-caches/halo-caches';
 import { getPlayerMatches } from './player-matches';
 import { skillRankCombined } from './skill-rank-helpers';
 
 export async function getPlayerEsrA(
-  leaderboard: KnowledgeMapLeaderboardProvider | undefined,
   playlistVersionLink: Omit<AssetVersionLink, 'AssetKind'>,
   xuid: string,
   asOf: DateTime,
   signal: AbortSignal,
-  haloCaches: InstanceType<typeof HaloCaches>,
+  haloCaches: InstanceType<typeof HaloCaches>
 ) {
   const playlist =
     await haloCaches.playlistVersionCache.get(playlistVersionLink);
@@ -30,7 +25,7 @@ export async function getPlayerEsrA(
           } else {
             return null;
           }
-        }),
+        })
       )
     )
       .filter((id): id is string => id !== null)
@@ -39,7 +34,6 @@ export async function getPlayerEsrA(
     const mostRecentGameByVariant = await Promise.all(
       gameVariantAssetIds.map(async (id) => {
         const iterationResult = await getPlayerMatches(
-          leaderboard,
           [wrapXuid(xuid)],
           {
             signal,
@@ -55,7 +49,7 @@ export async function getPlayerEsrA(
                 return false;
               }
               const player = m.MatchStats.Players.find(
-                (p) => p.xuid && compareXuids(p.xuid, xuid),
+                (p) => p.xuid && compareXuids(p.xuid, xuid)
               );
               if (!player?.Skill) {
                 return false;
@@ -64,21 +58,21 @@ export async function getPlayerEsrA(
             },
             loadUserData: false,
           },
-          haloCaches,
+          haloCaches
         ).next();
         if (iterationResult.done) {
           return null;
         } else {
           return iterationResult.value;
         }
-      }),
+      })
     );
 
     const mostRecentEsrByVariant = mostRecentGameByVariant
       .filter((m): m is NonNullable<typeof m> => !!m)
       .map((m) => {
         const player = m.MatchStats.Players.find(
-          (p) => p.xuid && compareXuids(p.xuid, xuid),
+          (p) => p.xuid && compareXuids(p.xuid, xuid)
         );
 
         if (!player?.Skill) {

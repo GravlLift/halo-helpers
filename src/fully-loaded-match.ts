@@ -1,29 +1,17 @@
 import {
   compareXuids,
-  entryIsValid,
-  ILeaderboardProvider,
   KnowledgeMapLeaderboardProvider,
   wrapXuid,
 } from '@gravllift/halo-helpers';
-import {
-  MatchInfo,
-  MatchSkill,
-  MatchStats,
-  PlayerMatchHistory,
-  ResultContainer,
-} from 'halo-infinite-api';
+import { MatchInfo, MatchStats, PlayerMatchHistory } from 'halo-infinite-api';
 import { BehaviorSubject, Observer, Subscribable } from 'rxjs';
 import type { HaloCaches } from './halo-caches/halo-caches';
-import { queueLeaderboardEntryForProcessing } from './leaderboard/leaderboard-entry-queue';
 import {
   PlayerMatchHistoryStatsSkill,
   ProgressiveMatch,
 } from './player-match-history-stats-skill';
 
 export async function fetchFullyLoadedMatch(
-  leaderboard:
-    | Parameters<typeof queueLeaderboardEntryForProcessing>[1]
-    | undefined,
   match: { MatchId: string; MatchInfo: MatchInfo },
   users: { xuid: string }[],
   signal: AbortSignal,
@@ -89,30 +77,6 @@ export async function fetchFullyLoadedMatch(
         >(),
   ]);
 
-  if (match.MatchInfo.Playlist?.AssetId && leaderboard) {
-    const playlistAssetId = match.MatchInfo.Playlist.AssetId;
-    entryIsValid;
-    queueLeaderboardEntryForProcessing(
-      haloCaches,
-      leaderboard,
-      skills
-        .filter(
-          (s): s is ResultContainer<MatchSkill> =>
-            s.Result != null && s.ResultCode === 0
-        )
-        .map((s) => ({
-          matchInfo: {
-            endTime: match.MatchInfo.EndTime,
-            playlistAssetId,
-            gameVariantAssetId: match.MatchInfo.UgcGameVariant?.AssetId ?? '',
-            matchId: match.MatchId,
-          },
-          matchSkill: s.Result,
-          xuid: s.Id,
-        }))
-    );
-  }
-
   const Players = await Promise.all(
     stats.Players.map(async (p) => {
       const userInfo = (await userInfoMap.get(p.PlayerId)) ?? {
@@ -175,7 +139,6 @@ export function fetchMatchProgressive(
     signal: AbortSignal;
     haloCaches: HaloCaches;
     loadUserData: boolean;
-    leaderboard: KnowledgeMapLeaderboardProvider | undefined;
     _logger$?: Observer<string>;
   }
 ): Subscribable<ProgressiveMatch> {
@@ -273,7 +236,7 @@ export function fetchMatchProgressive(
 
   playerXuidsPromise.then((playersXuids) => {
     // Skills
-    const playerSkillPromises = Array.from(
+    Array.from(
       options.haloCaches.matchSkillsCache.get(
         playersXuids.map((xuid) => ({
           matchId: match.MatchId,
@@ -315,32 +278,6 @@ export function fetchMatchProgressive(
           return playerSkill;
         })
     );
-
-    Promise.all(playerSkillPromises).then((skills) => {
-      if (match.MatchInfo.Playlist?.AssetId && options.leaderboard) {
-        const playlistAssetId = match.MatchInfo.Playlist.AssetId;
-        queueLeaderboardEntryForProcessing(
-          options.haloCaches,
-          options.leaderboard,
-          skills
-            .filter(
-              (s): s is ResultContainer<MatchSkill> =>
-                s.Result != null && s.ResultCode === 0
-            )
-            .map((s) => ({
-              matchInfo: {
-                endTime: match.MatchInfo.EndTime,
-                playlistAssetId,
-                gameVariantAssetId:
-                  match.MatchInfo.UgcGameVariant?.AssetId ?? '',
-                matchId: match.MatchId,
-              },
-              matchSkill: s.Result,
-              xuid: s.Id,
-            }))
-        );
-      }
-    });
   });
 
   if (options.loadUserData) {
