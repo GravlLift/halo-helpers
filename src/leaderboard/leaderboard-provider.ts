@@ -1,3 +1,4 @@
+import { SkillProp } from '../skill-prop';
 import type { LeaderboardEntry } from './leaderboard-entry';
 
 export interface ILeaderboardProvider<
@@ -8,12 +9,12 @@ export interface ILeaderboardProvider<
   getGamertagIndex(
     xuid: string,
     playlistAssetId: string,
-    skillProp: 'csr' | 'esr',
+    skillProp: SkillProp,
     signal?: AbortSignal
   ): Promise<number>;
   getSkillBuckets(
     playlistAssetId: string,
-    skillProp: 'csr' | 'esr'
+    skillProp: SkillProp
   ): Promise<Map<number, number>>;
   getRankedEntries(
     playlistAssetId: string,
@@ -21,7 +22,7 @@ export interface ILeaderboardProvider<
       offset: number;
       limit: number;
     },
-    skillProp: 'csr' | 'esr'
+    skillProp: SkillProp
   ): Promise<(TEntry & { rank: number })[]>;
   getPlaylistEntriesCount(playlistAssetId: string): Promise<number>;
   getPlaylistAssetIds(): Promise<string[]>;

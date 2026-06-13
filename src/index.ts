@@ -13,3 +13,4 @@ export * from './request-policy';
 export * from './skill-rank-helpers';
 export * from './xuids';
 export * from './halo-caches/redis';
+export * from './skill-prop';
