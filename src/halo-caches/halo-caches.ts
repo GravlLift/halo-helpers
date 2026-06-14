@@ -6,8 +6,7 @@ import {
   NoCache,
   NullableFetcher,
 } from '@gravllift/utilities';
-
-import { IPolicy } from 'cockatiel';
+import { IPolicy, noop } from 'cockatiel';
 import {
   AssetKind,
   AssetKindTypeMap,
@@ -77,7 +76,7 @@ export class HaloCaches {
     haloInfiniteClient: HaloInfiniteClient,
     xboxClient: XboxClient,
     options: {
-      requestPolicy: IPolicy;
+      requestPolicy?: IPolicy;
       xuidIsCurrentUser: (xuid: string) => Promise<boolean>;
       additionalXuidFetcher?: NullableFetcher<
         { xuid: string; gamertag: string },
@@ -85,6 +84,7 @@ export class HaloCaches {
       >;
     }
   ) {
+    const requestPolicy = options.requestPolicy ?? noop;
     this.fullUsersCache = new LayerCache({
       maxEntries: 1000,
       rollingExpiration: true,
@@ -92,7 +92,7 @@ export class HaloCaches {
       fetchers: [
         {
           fetchOneFn: async (gamertag: string, signal?: AbortSignal) => {
-            const result = await options.requestPolicy.execute(
+            const result = await requestPolicy.execute(
               (ctx) =>
                 haloInfiniteClient
                   .getUser(gamertag, { signal: ctx.signal })
@@ -160,7 +160,7 @@ export class HaloCaches {
 
     this.matchStatsCache = new NoCache({
       fetchOneFn: (matchId: string, signal?: AbortSignal) =>
-        options.requestPolicy.execute(
+        requestPolicy.execute(
           (ctx) =>
             haloInfiniteClient.getMatchStats(matchId, { signal: ctx.signal }),
           signal
@@ -189,7 +189,7 @@ export class HaloCaches {
             .map(async ([matchId, group]) => {
               return {
                 matchId,
-                skills: await options.requestPolicy.execute(
+                skills: await requestPolicy.execute(
                   (ctx) =>
                     haloInfiniteClient.getMatchSkill(
                       matchId,
@@ -227,7 +227,7 @@ export class HaloCaches {
     });
     this.playlistCache = new NoCache({
       fetchOneFn: (playlistId: string, signal?: AbortSignal) =>
-        options.requestPolicy.execute(
+        requestPolicy.execute(
           (ctx) =>
             haloInfiniteClient.getPlaylist(playlistId, {
               signal: ctx.signal,
@@ -266,7 +266,7 @@ export class HaloCaches {
             key: Omit<AssetVersionLink, 'AssetKind'>,
             signal?: AbortSignal
           ) =>
-            options.requestPolicy
+            requestPolicy
               .execute(
                 (ctx) =>
                   haloInfiniteClient.getSpecificAssetVersion(
@@ -302,9 +302,12 @@ export class HaloCaches {
       MemoryCache<
         AssetKindTypeMap[typeof AssetKind.MapModePair] | AssetVersionLink,
         Omit<AssetVersionLink, 'AssetKind'>
-      >
+      >,
     ];
 
-    this.matchPageCache = new MatchPageCache(haloInfiniteClient, options);
+    this.matchPageCache = new MatchPageCache(haloInfiniteClient, {
+      ...options,
+      requestPolicy,
+    });
   }
 }

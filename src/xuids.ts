@@ -1,6 +1,10 @@
 // Xuids in either wrapped or unwrapped form
 const xuidRegex = /(xuid\()?(\d+)\)?/i;
 
+export function isXuid(str: string): boolean {
+  return xuidRegex.test(str);
+}
+
 export function wrapXuid(xuid: string) {
   const regexResult = xuid.match(xuidRegex);
   if (regexResult == null) {
