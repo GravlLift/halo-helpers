@@ -86,6 +86,11 @@ export function ensureJoin(
   leaderboard: KnowledgeMapLeaderboardProvider,
   rtcPolyfill?: unknown,
 ) {
+  if (process.env['NEXT_PUBLIC_DISABLE_HIVE_MIND'] === 'true') {
+    console.warn('Hive Mind is disabled via environment variable.');
+    return;
+  }
+
   try {
     roomLeaderboard = {
       room: joinRoom(
