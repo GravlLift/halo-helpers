@@ -1,11 +1,14 @@
+import { Observable } from 'rxjs';
 import { SkillProp } from '../skill-prop';
 import type { LeaderboardEntry } from './leaderboard-entry';
 
-export interface ILeaderboardProvider<
-  TEntry extends LeaderboardEntry = LeaderboardEntry,
-> {
+interface BaseLeaderboardProvider {
   initialized: () => Promise<boolean>;
-  addLeaderboardEntries(entries: TEntry[]): Promise<TEntry[]>;
+}
+
+export interface ReadOnlyLeaderboardProvider<
+  TEntry extends LeaderboardEntry = LeaderboardEntry,
+> extends BaseLeaderboardProvider {
   getGamertagIndex(
     xuid: string,
     playlistAssetId: string,
@@ -19,11 +22,26 @@ export interface ILeaderboardProvider<
   getRankedEntries(
     playlistAssetId: string,
     options: {
-      offset: number;
-      limit: number;
+      page: number;
     },
     skillProp: SkillProp
   ): Promise<(TEntry & { rank: number })[]>;
   getPlaylistEntriesCount(playlistAssetId: string): Promise<number>;
   getPlaylistAssetIds(): Promise<string[]>;
 }
+
+export interface ObservableLeaderboardProvider<
+  TEntry extends LeaderboardEntry = LeaderboardEntry,
+> extends ReadOnlyLeaderboardProvider<TEntry> {
+  newEntries$: Observable<TEntry[]>;
+}
+
+export interface IWriteLeaderboardProvider<
+  TEntry extends LeaderboardEntry = LeaderboardEntry,
+> extends BaseLeaderboardProvider {
+  addLeaderboardEntries(entries: TEntry[]): Promise<TEntry[]>;
+}
+
+export type ReadWriteLeaderboardProvider<
+  TEntry extends LeaderboardEntry = LeaderboardEntry,
+> = ReadOnlyLeaderboardProvider<TEntry> & IWriteLeaderboardProvider<TEntry>;

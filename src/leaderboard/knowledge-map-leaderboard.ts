@@ -1,8 +1,8 @@
-import type { ILeaderboardProvider } from './leaderboard-provider';
 import type { KnowledgeMapLeaderboardEntry } from './entry';
+import type { ReadWriteLeaderboardProvider } from './leaderboard-provider';
 
 export type KnowledgeMapLeaderboardProvider =
-  ILeaderboardProvider<KnowledgeMapLeaderboardEntry> & {
+  ReadWriteLeaderboardProvider<KnowledgeMapLeaderboardEntry> & {
     getCurrentKnowledge: () => Promise<Map<string, number>>;
     getDeltaEntries(
       knowledges: Record<string, number>
