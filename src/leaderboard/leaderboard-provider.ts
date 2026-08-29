@@ -9,7 +9,7 @@ interface BaseLeaderboardProvider {
 export interface ReadOnlyLeaderboardProvider<
   TEntry extends LeaderboardEntry = LeaderboardEntry,
 > extends BaseLeaderboardProvider {
-  getGamertagIndex(
+  getXuidIndex(
     xuid: string,
     playlistAssetId: string,
     skillProp: SkillProp,
